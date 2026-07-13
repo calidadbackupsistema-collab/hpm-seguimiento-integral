@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Integral de Hallazgos HPM | Hyundai Polytech Mexico</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --navy:#0b2d50;
+  --navy2:#123e69;
+  --blue:#0e75bc;
+  --cyan:#42c6ff;
+  --red:#d7263d;
+  --green:#16834e;
+  --amber:#d9901f;
+  --ink:#102237;
+  --muted:#5d7186;
+  --glass:rgba(255,255,255,.62);
+  --glass-strong:rgba(255,255,255,.82);
+  --line:rgba(255,255,255,.45);
+  --line-dark:rgba(13,44,78,.18);
+  --shadow:0 20px 55px rgba(5,24,44,.18);
+  --shadow-soft:0 10px 28px rgba(5,24,44,.11);
+  --font:'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR','Segoe UI',Arial,sans-serif;
+  --mono:'Consolas','SF Mono','Courier New',monospace;
+  --radius:18px;
+  --gap:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--font);}
+html{scroll-behavior:smooth;}
+body{
+  min-height:100vh;
+  color:var(--ink);
+  padding-bottom:36px;
+  overflow-x:hidden;
+  background:
+    radial-gradient(circle at 8% 3%, rgba(66,198,255,.30), transparent 28%),
+    radial-gradient(circle at 95% 7%, rgba(215,38,61,.20), transparent 25%),
+    radial-gradient(circle at 50% 100%, rgba(14,117,188,.18), transparent 38%),
+    linear-gradient(135deg,#eaf3fb 0%,#f7fbff 48%,#e5edf6 100%);
+  font-size:13px;
+}
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:-1;
+  background:
+    linear-gradient(115deg,rgba(255,255,255,.22),rgba(255,255,255,0) 40%),
+    repeating-linear-gradient(135deg,rgba(13,44,78,.035) 0 2px,transparent 2px 16px);
+}
+.dashboard-container{max-width:1380px;margin:0 auto;padding:18px 16px 0;}
+
+/* Encabezado alineado al formato de Auditoría Integral */
+.dashboard-header{
+  position:relative;
+  z-index:20;
+  color:#fff;
+  background:linear-gradient(120deg,rgba(9,37,66,.92),rgba(13,62,109,.86));
+  border:1px solid rgba(255,255,255,.18);
+  border-bottom:5px solid var(--red);
+  border-radius:18px;
+  box-shadow:0 16px 42px rgba(4,22,39,.28);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  padding:13px 16px 14px;
+  margin-bottom:var(--gap);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  overflow:hidden;
+}
+.dashboard-header::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(125deg,rgba(255,255,255,.14),transparent 34%,rgba(255,255,255,.04)),
+    radial-gradient(circle at 95% 15%,rgba(66,198,255,.26),transparent 28%);
+}
+.header-left,.header-right{position:relative;z-index:1;}
+.header-left{display:flex;align-items:center;gap:14px;min-width:0;}
+.logo-box{
+  width:164px;
+  height:56px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,.94);
+  border:1px solid rgba(255,255,255,.78);
+  border-radius:8px;
+  box-shadow:0 10px 26px rgba(0,0,0,.20);
+  flex:0 0 auto;
+  overflow:hidden;
+}
+.logo-box img{max-width:150px;max-height:46px;display:block;}
+.header-titles{min-width:0;}
+.header-titles h1{
+  margin:0;
+  font-size:1.03rem;
+  line-height:1.25;
+  font-weight:950;
+  letter-spacing:.12px;
+}
+.header-chip{
+  display:inline-flex;
+  align-items:center;
+  background:var(--red);
+  color:#fff;
+  font-size:.63rem;
+  font-weight:950;
+  letter-spacing:.7px;
+  padding:3px 8px;
+  border-radius:4px;
+  margin-right:8px;
+  vertical-align:middle;
+}
+.header-titles p{font-size:.78rem;opacity:.93;margin-top:4px;letter-spacing:.15px;}
+.header-right{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;}
+.filters{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  flex-wrap:wrap;
+  padding:5px;
+  border-radius:10px;
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.16);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+}
+.filters select{
+  min-width:145px;
+  padding:8px 11px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.12);
+  color:#fff;
+  font-size:.72rem;
+  font-weight:850;
+  outline:none;
+  cursor:pointer;
+}
+.filters select:focus{box-shadow:0 0 0 3px rgba(66,198,255,.18);border-color:rgba(66,198,255,.65);}
+.filters select option{background:var(--navy);color:#fff;}
+.badge-pill{
+  background:rgba(255,255,255,.11);
+  border:1px solid rgba(255,255,255,.18);
+  color:#eaf5ff;
+  padding:8px 11px;
+  border-radius:10px;
+  font-size:.72rem;
+  font-weight:850;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+}
+.langsw{display:flex;gap:5px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);padding:5px;border-radius:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.12);flex:0 0 auto;}
+.langsw button{border:none;background:transparent;color:#d8e8f8;font-weight:950;font-size:.72rem;padding:6px 10px;border-radius:8px;cursor:pointer;transition:.18s;}
+.langsw button.active{background:var(--red);color:#fff;box-shadow:0 6px 16px rgba(217,45,53,.30);}
+.langsw button:not(.active):hover{background:rgba(255,255,255,.14);}
+
+/* Tarjetas de vidrio */
+.kpi-row{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:var(--gap);
+  margin-bottom:var(--gap);
+}
+.kpi-card,.chart-container,.table-section{
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(145deg,rgba(255,255,255,.76),rgba(255,255,255,.46));
+  border:1px solid var(--line);
+  box-shadow:var(--shadow-soft);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+.kpi-card::before,.chart-container::before,.table-section::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(125deg,rgba(255,255,255,.45),transparent 34%,rgba(255,255,255,.12));
+}
+.kpi-card{
+  min-height:132px;
+  border-radius:var(--radius);
+  padding:17px 18px 15px;
+  border-top:4px solid var(--blue);
+}
+.kpi-card.kpi-detected{border-top-color:var(--blue);}
+.kpi-card.kpi-optimal{border-top-color:var(--green);}
+.kpi-card.kpi-open{border-top-color:var(--red);}
+.kpi-card>*{position:relative;z-index:1;}
+.kpi-label{
+  max-width:82%;
+  font-size:.72rem;
+  color:var(--navy);
+  text-transform:uppercase;
+  letter-spacing:.45px;
+  font-weight:950;
+  margin-bottom:7px;
+}
+.kpi-value{font-size:2rem;font-family:var(--mono);font-weight:950;line-height:1;margin-bottom:6px;}
+.kpi-detected .kpi-value{color:var(--navy);}
+.kpi-optimal .kpi-value{color:var(--green);}
+.kpi-open .kpi-value{color:var(--red);}
+.kpi-sub{font-size:.75rem;color:var(--muted);line-height:1.35;min-height:20px;}
+.kpi-change{font-size:.72rem;font-weight:850;margin-top:3px;display:inline-block;}
+.kpi-change.positive{color:var(--green);}
+.kpi-change.negative{color:var(--red);}
+.kpi-progress{margin-top:11px;height:5px;border-radius:99px;background:rgba(13,44,78,.10);overflow:hidden;}
+.kpi-progress>div{height:100%;border-radius:99px;transition:width .25s ease;}
+.kpi-optimal .kpi-progress>div{background:linear-gradient(90deg,var(--green),#36b878);}
+.kpi-detected .kpi-progress>div{background:linear-gradient(90deg,var(--navy),var(--blue));}
+.kpi-open .kpi-progress>div{background:linear-gradient(90deg,var(--red),#f05259);}
+
+.chart-row{display:grid;grid-template-columns:1.35fr 1fr;gap:var(--gap);margin-bottom:var(--gap);}
+.chart-row.secondary{grid-template-columns:1fr 1fr;}
+.chart-container{border-radius:var(--radius);padding:16px 17px 13px;min-width:0;}
+.chart-container>*{position:relative;z-index:1;}
+.chart-container h3,.table-section h3{
+  margin:0;
+  color:var(--navy);
+  font-size:.83rem;
+  text-transform:uppercase;
+  letter-spacing:.35px;
+  font-weight:950;
+}
+.chart-container h3{padding-bottom:8px;border-bottom:1px solid rgba(13,44,78,.14);}
+.chart-container .chart-sub{font-size:.72rem;color:var(--muted);margin:7px 0 9px;line-height:1.35;}
+.chart-container canvas{max-height:220px;}
+
+.table-section{
+  border-radius:var(--radius);
+  padding:16px 17px 14px;
+  overflow:auto;
+  max-height:330px;
+}
+.table-section>*{position:relative;z-index:1;}
+.table-section h3{
+  padding-bottom:10px;
+  margin-bottom:7px;
+  border-bottom:1px solid rgba(13,44,78,.14);
+  position:sticky;
+  top:-16px;
+  z-index:4;
+  background:rgba(247,251,255,.96);
+  backdrop-filter:blur(10px);
+}
+.data-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.76rem;min-width:980px;}
+.data-table thead{position:sticky;top:27px;z-index:3;}
+.data-table thead th{
+  text-align:left;
+  padding:9px 9px;
+  border-bottom:2px solid rgba(13,44,78,.16);
+  background:rgba(239,246,252,.97);
+  color:var(--navy);
+  font-weight:950;
+  font-size:.66rem;
+  text-transform:uppercase;
+  letter-spacing:.35px;
+  white-space:nowrap;
+  cursor:pointer;
+  user-select:none;
+}
+.data-table thead th:hover{background:#e5f0f8;color:var(--blue);}
+.data-table tbody td{padding:8px 9px;border-bottom:1px solid rgba(13,44,78,.08);vertical-align:middle;}
+.data-table tbody tr{transition:.14s;}
+.data-table tbody tr:hover{background:rgba(255,255,255,.55);}
+.status-chip,.sev-chip{display:inline-flex;align-items:center;justify-content:center;font-weight:950;white-space:nowrap;}
+.status-chip{padding:4px 9px;border-radius:999px;font-size:.65rem;}
+.status-chip.abierto{background:rgba(215,38,61,.11);color:#9b1824;border:1px solid rgba(215,38,61,.18);}
+.status-chip.cerrado{background:rgba(22,131,78,.11);color:#0f6d3e;border:1px solid rgba(22,131,78,.18);}
+.status-chip.proceso{background:rgba(217,144,31,.13);color:#8a5a0e;border:1px solid rgba(217,144,31,.20);}
+.sev-chip{padding:4px 8px;border-radius:7px;font-size:.64rem;}
+.sev-chip.critico{background:rgba(215,38,61,.11);color:#9b1824;}
+.sev-chip.mayor{background:rgba(217,144,31,.14);color:#8a5a0e;}
+.sev-chip.menor{background:rgba(14,117,188,.11);color:#0b5e98;}
+.dashboard-footer{
+  margin-top:var(--gap);
+  padding:13px 16px;
+  text-align:center;
+  font-size:.70rem;
+  line-height:1.45;
+  color:var(--muted);
+  background:rgba(255,255,255,.42);
+  border:1px solid rgba(255,255,255,.56);
+  border-radius:14px;
+  box-shadow:0 8px 20px rgba(5,24,44,.07);
+}
+.dashboard-footer code{font-family:var(--mono);color:var(--navy);font-weight:850;}
+
+/* ---- Tarjetas de resumen por tipo de hallazgo ---- */
+.category-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap);margin-bottom:var(--gap);}
+.category-card{position:relative;overflow:hidden;border-radius:var(--radius);padding:15px 17px;border-top:4px solid var(--blue);
+  background:linear-gradient(145deg,rgba(255,255,255,.76),rgba(255,255,255,.46));border:1px solid var(--line);box-shadow:var(--shadow-soft);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
+.category-card.cat-safety{border-top-color:var(--amber);}
+.category-card.cat-quality{border-top-color:var(--blue);}
+.category-card.cat-environmental{border-top-color:var(--green);}
+.category-card .cat-title{font-size:.74rem;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;font-weight:950;margin-bottom:8px;}
+.category-card .cat-total{font-size:1.7rem;font-family:var(--mono);font-weight:950;color:var(--navy);line-height:1;}
+.category-card .cat-breakdown{display:flex;gap:12px;margin-top:8px;font-size:.72rem;color:var(--muted);}
+.category-card .cat-breakdown b{color:var(--ink);}
+
+/* ---- QR y acciones en la tabla ---- */
+.qr-cell{display:flex;align-items:center;gap:6px;}
+.qr-cell img{width:40px;height:40px;border:1px solid rgba(13,44,78,.15);border-radius:6px;background:#fff;cursor:pointer;}
+.qr-cell a{font-size:.64rem;color:var(--blue);font-weight:850;text-decoration:none;}
+.qr-cell a:hover{text-decoration:underline;}
+.folio-cell{font-family:var(--mono);font-weight:850;font-size:.72rem;color:var(--navy);}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.row-actions button{border:none;border-radius:8px;padding:6px 9px;font-size:.66rem;font-weight:850;cursor:pointer;text-transform:uppercase;letter-spacing:.2px;}
+.btn-view{background:rgba(14,117,188,.12);color:#0b5e98;}
+.btn-view:hover{background:rgba(14,117,188,.22);}
+.btn-delete{background:rgba(215,38,61,.12);color:#9b1824;}
+.btn-delete:hover{background:rgba(215,38,61,.22);}
+.toolbar-row{display:flex;justify-content:flex-end;gap:10px;margin-bottom:10px;}
+.toolbar-row button{border:none;border-radius:10px;padding:9px 14px;font-size:.72rem;font-weight:950;text-transform:uppercase;letter-spacing:.3px;cursor:pointer;
+  background:rgba(215,38,61,.10);color:#9b1824;border:1px solid rgba(215,38,61,.20);}
+.toolbar-row button:hover{background:rgba(215,38,61,.18);}
+
+/* ---- Modales ---- */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(9,20,35,.55);z-index:100;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:#fff;border-radius:18px;max-width:640px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 25px 60px rgba(0,0,0,.35);}
+.modal-head{background:linear-gradient(120deg,rgba(9,37,66,.95),rgba(13,62,109,.92));color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;}
+.modal-head h3{font-size:.9rem;text-transform:uppercase;letter-spacing:.3px;}
+.modal-close{background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;line-height:1;}
+.modal-body{padding:18px;}
+.modal-photos{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.modal-photo-box{border:1px solid rgba(13,44,78,.15);border-radius:12px;overflow:hidden;background:#fafcff;}
+.modal-photo-box h4{font-size:.68rem;text-transform:uppercase;letter-spacing:.3px;padding:8px 10px;color:#fff;}
+.modal-photo-box.before h4{background:var(--red);}
+.modal-photo-box.after h4{background:var(--green);}
+.modal-photo-box img{width:100%;height:200px;object-fit:contain;background:#fff;display:block;}
+.modal-photo-box .no-img{height:200px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem;font-weight:800;}
+.modal-notes{border:1px solid rgba(13,44,78,.15);border-radius:12px;padding:12px;font-size:.85rem;color:#142c43;line-height:1.5;white-space:pre-wrap;min-height:50px;background:#fafcff;}
+.modal-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;font-size:.78rem;}
+.modal-meta div{border:1px solid rgba(13,44,78,.14);border-radius:10px;padding:8px 10px;background:#fafcff;}
+.modal-meta b{display:block;font-size:.64rem;text-transform:uppercase;color:var(--navy);letter-spacing:.3px;margin-bottom:2px;}
+.login-box{max-width:360px;}
+.login-box .modal-body{display:flex;flex-direction:column;gap:12px;}
+.login-box input{border:1px solid rgba(13,44,78,.2);border-radius:10px;padding:10px 12px;font-size:.9rem;}
+.login-box button{border:none;border-radius:10px;padding:11px;font-weight:950;text-transform:uppercase;letter-spacing:.3px;cursor:pointer;background:var(--navy);color:#fff;}
+.login-error{color:var(--red);font-size:.78rem;font-weight:800;display:none;}
+.login-error.show{display:block;}
+
+@media(max-width:1000px){
+  .category-row{grid-template-columns:1fr;}
+  .dashboard-header{align-items:flex-start;flex-direction:column;}
+  .header-right{width:100%;justify-content:space-between;}
+  .chart-row,.chart-row.secondary{grid-template-columns:1fr;}
+}
+@media(max-width:760px){
+  body{padding-bottom:22px;}
+  .dashboard-container{padding:10px 9px 0;}
+  .dashboard-header{padding:11px;border-radius:16px;}
+  .header-left{display:grid;grid-template-columns:124px minmax(0,1fr);width:100%;gap:10px;}
+  .logo-box{width:124px;height:44px;border-radius:7px;}
+  .logo-box img{max-width:114px;max-height:36px;}
+  .header-titles h1{font-size:.82rem;line-height:1.20;}
+  .header-chip{font-size:.54rem;padding:2px 6px;margin-right:5px;}
+  .header-titles p{font-size:.68rem;line-height:1.35;}
+  .header-right{display:grid;grid-template-columns:1fr;width:100%;gap:8px;}
+  .langsw{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:5px;border-radius:12px;}
+  .langsw button{min-height:36px;font-size:.74rem;padding:6px;border-radius:9px;}
+  .filters{display:grid;grid-template-columns:1fr 1fr;width:100%;}
+  .filters select{min-width:0;width:100%;font-size:.72rem;}
+  .badge-pill{justify-content:center;width:100%;}
+  .kpi-row{grid-template-columns:1fr;gap:10px;}
+  .kpi-card{min-height:118px;padding:15px;}
+  .chart-row{gap:10px;margin-bottom:10px;}
+  .chart-container,.table-section{padding:13px;border-radius:16px;}
+  .chart-container canvas{max-height:245px;}
+  .table-section{max-height:360px;}
+  .table-section h3{top:-13px;}
+  .data-table thead{top:25px;}
+}
+@media(max-width:440px){
+  .header-left{grid-template-columns:1fr;justify-items:center;text-align:center;}
+  .header-titles{width:100%;}
+  .logo-box{width:136px;height:47px;}
+  .logo-box img{max-width:126px;max-height:38px;}
+  .filters{grid-template-columns:1fr;}
+  .kpi-value{font-size:1.75rem;}
+}
+@media print{
+  @page{size:Letter landscape;margin:7mm;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  body{background:#fff!important;padding:0!important;}
+  body::before{display:none!important;}
+  .dashboard-container{max-width:none;padding:0;}
+  .dashboard-header{position:static;box-shadow:none;backdrop-filter:none;margin-bottom:6px;padding:8px 10px;border-radius:8px;}
+  .logo-box{width:130px;height:42px;box-shadow:none;}
+  .logo-box img{max-width:120px;max-height:34px;}
+  .filters{display:none!important;}
+  .badge-pill{padding:5px 8px;}
+  .kpi-row{gap:6px;margin-bottom:6px;}
+  .kpi-card,.chart-container,.table-section{box-shadow:none;backdrop-filter:none;background:#fff;border:1px solid #cbd6e0;}
+  .kpi-card{min-height:92px;padding:10px;border-radius:8px;}
+  .kpi-value{font-size:1.35rem;}
+  .chart-row{gap:6px;margin-bottom:6px;}
+  .chart-container{padding:8px;border-radius:8px;}
+  .chart-container canvas{max-height:150px!important;}
+  .table-section{padding:8px;border-radius:8px;max-height:none;overflow:visible;}
+  .table-section h3,.data-table thead{position:static;}
+  .data-table{min-width:0;font-size:7.5pt;}
+  .data-table thead th{font-size:6.3pt;padding:4px;}
+  .data-table tbody td{padding:4px;}
+  .dashboard-footer{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="dashboard-container">
+
+  <header class="dashboard-header">
+    <div class="header-left">
+      <div class="logo-box"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQMAAABPCAYAAADvPKBoAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFxEAABcRAcom8z8AAEQnSURBVHhe7V0HeBRV157ZFMjuzmxPI4BUseuHop+/n0l2yrYUIISOIEhsHzZsiLqKlOy0LWkEgvQWUREBEVDEhiAgSBMEQYqIvaOU3P85M7ub3U2AhKb8/77Pc55Ndu7cKTv3nXPPPQXD4ogjjjjiiCOOOC46imtRQselu1pcO2OTBqv5ljBU79Hppu7VG2fuIk01O4iu1evVV9ZuTXa7kSp23zjiiOMSBUIIN9Tu0RmmH2qjmbH/as2MfdaW077srZ72RYn6xZ2Pqibtfjph0ufPJ03+/IXEql3PJlZsH6WZuP2hpIptw1Imbu+pKduSo6n49FpdYFM7omy7qaN/V4vYY8QRRxz/UMAbPWPRIbN+1v5rUmYe6JU088BzyTO/nJswff8a1fR9e1QvfvF9Qs2eowk1uxE+ZS/CQGr2ImzSHoRP3IkSqradxCu3/66q2PZNQtmWPQmBreuSyja/nBTYzLfwbryX9K63aUvXXJHu32jpWr0+Kfb4ccQRx9+MrutRkm7+4Xba2QeKWs49JCXN+voj1axDP+JzjiB87rcIm3MEYTO/QtiMAwif+qVCApN3I2zSboRVf46wibsQVvUZwiaC7ERY5a76z4qdCCvfgXBp44kE6ZNDCdIn77SQPva3ENYNJcT1t6R4NmR29C+Naw1xxPF3AjSB1Nlftk+q/eqOxHkHX06Yc/hbfP53CKv9EWFzjyBsxkGET9uPsKn7EPYiaAJfILxmN8Imf46wSbsUgUEPRFC5HWGV2xBWsQ1hZVsQFtiCMP+nCPNuRphvk/yJ+7chLLADYb5Pkcqz7miCZ93mxNI1U1p4PrxLx629vk3lp4bYc4wjjjguMMj5PxlT5n5d2GL+kVfweV//jC34HmHzvkXYrEMIm7Ff1gKw6fsRNu3LKDLAYsmgGghhlzxNwKp3BjWCHQiv2IGwsu0I829FmG8zwqSNCBc2IoxfjzD+Y4TLn58gnFuP8HFr/kgY98H6FuM/8KhL1zhaut9rE59GxBHHRYBl/pGOLeYdGaOaf+QQ9tpvCHvpO4TN+QphMw8qAkTQKBnsQVjNHoUUpuwLTxfwiTvrVBN3HsWrPvsJq9z5PV6541u8Yvv3eNnWn1SBrX/gvs0nMW9QOwBNQdwokwBWuhZhpR8hrHQdwjwbEVb6MUp44f2vEp9fPaflc+8O0r2wul22e1Vi7PnHEUcc5whYISAWHrg5ad7hl/F5X5/EXobpwNcKEcw+1DgZABHIshdhMGWYsg/hNXt+wyfv3pdQvXN94sQdixMrt09Nqd7OwYqCKrB1ZHLltgdUZZ8+khzY+JSmbKMnUdo4KVHcUKsSNqxIED7+BOfX7cU9677FPWuP4hOADD5G2Pi1CBu3BuHj1yJ87Bqkem71D0kvvLew5XNvD9ZNeK99thvFSSGOOM4H3AiptHMP/SfppSNrFG3ge4UI5h5GOJABTA9ORQbTDyDVtH1INfXLr1WTP1/dYtIuoeWUz3tbpu683r50F9kUpwIgoqsn70kjyzbcmMKv69mSXzMyacIHExM9Hy1XjfvwM9WEj77Fx35wEh+3BmFjP0TY2I8QPm4dUj3z1rHEZ99apHl6Vd8U9/LM2H7jiCOO5gA0gle/vzVp/pE12Cu/IGz+NwibB0TwNcLnHI7WCkCABKbvV4yH0w8ifPqBn5Ne3L0iZcrue7XT915RjFBC7CHOBtlT97ZMlT5tr/F8QKVMeP/hhLHvzkoY8+7HqjHvf4U/t/oY/vy7CHvuPYSN+QAljF75TeKo5VPVo99kde5V+ti+4ogjjiZA+8p3VyTNP/IW9mqICI6EtQJsdiNTBJkMQDs4iPCpe/e1ePGLCamzd7aP7fd8A7wbddz716tfWD0s+fl3XlQ9+/YG/Nm3v8GfWXUSe/4DhD3zLkp4avneFk++8bzWvaxL3J4QRxzNALgLJ8/7agq24AeEzf+2ngjmBKcHQASxUwQgg5mHkGrq3m0tp38xqPY8aQLNwS3ihynGsau7JT+z8qHEZ1cuUI1euQcfvfIo9uy7CB+1AiU98cbypJGLe+ueXBxfjowjjjMBYgmI+YeHquYd+aveRgBkEJwayEQQMT0I2QpmHkSq6ft2a6fu7R7b58UGjmFYhrDKTDy9vCD56RVlCU8u2YiPWvEjPvptpHp0yTctHls8nnx0aQewScTu+38FYO8pqa5Ocq9alQhSUlKdVFxbe9EJOo5LGJZXjnRInPv1Fuzln4NEoGgE4dWDWI1AFiCC/T9oZ+wbFtvf3w2EkIp0L7kx+cmloxMeX/KO6ok3v1c9tgwljly8TP3oUvZK99bk2H0ufSC8U+/AdZn5vsHpedIgkFYu7x0diipujW0ZiVsenp/SpXuZ6cpek40g8t/F5dpwA4RwZuSbmq4l1bqmSLcRM8nQtKxrSbU6su8re4nGjiP8shfp5UNriMht1/SvNFxZXPu3/i7wogiRqNu9KrE5EvmSASe9yG0lJeuTzldQ3rUDZ2ga3Dd3bXLXkuokuL+n/B2bAnAxVtcefhIPTQ0ipwWxGkF4enAA4TMPHms5Y++k4tp/9sAyPr38ihZPLB6R+Ojry1WPLv4+8eGFW1uMfK0k45FF5ti2lzJkzcjlHUUy0lGC5n8FIRnpF4tDmhjbNgS3261q3aOKsTi9gtnp9cji8PFtepQPCLXJdk9t2aawYliayzc2zeV7/rTi9I7JKPA9eUXPqk5ATq0Ky50mh1dS+hV5i10cRzqkG2HgtC4MDDHZfaKyTeJMTnFMut1/ZfQZYhg87Bkury0j38ecF8mTWOgvtbDsmphD4Rl5vjZp+YEhGS5/SYbDO7xpEhiemR8YcmVxdRulG4WUM1wBeVtITD0DXWKOh3Uc4CeJ2z2dFBlzaqHHdEpj+FTM7Va1KSjvZXHW37c0hzS2U++q67oMmt45NU8ab3Z4+dC2rAJf39hjnhZtFvzUPnH2V5txmB5EkkCQCPCQVhC5jDjjUF3CtP3bU+fvj72h/1h09L9rafHYwqFJDy1cmvTgqztSHnp1vG7ka+1i210K6Gj3t7iy2NemU0+p/bW9Au069wq06+SqbJ/u9JYTbABpKVERWkJGVnyt28BJcptIYQbO0BQX1ybAACVsZUhLe5GW9iEtW4YsTv8roWPddm+lwWyT1kG/BC3VC+NrRPxIR/N/telelodhbpXBJkpaW2Wwbz/SWjmkzhk3DCG3ymyX3ghvY+Rtf2mzPTHTTZk0/kOywp86hv9VEeGXhhLaFimxbULthF91NulXk116MfpYbpU625OnpbhjWtav3ItTilR/jym4H56jbbr78uRuimsTMgu8jxG0sk0Wq4DUuZ6SqKMBEfcqYzRWbpnGyr+hsXpOJcu0lLDUbPM+AOdodvimkvaK8D0lKf5kVvdAv859Kh0kA7958NwZP0q1S/Mij3l6IKQi5h8ZrJp96JhsHwAtIEgAYRKIWjkILiVO338iZcZ+Mba7SwGtH1ueqX5k4dAWDy5coHno5bHaRxZ0gR8wtt0/GHgrl6+TyS5NNdqlV8026RWTTXrFYPO+pGPEHVpKkAcdiMbK1RGU8CVsh3aywD5OaUG7osr/wMNlckjPw+DWWnlFaO9Ji0OqDR3susFT9SZWWKOhvPVtQCjhuJYS/4oW6S+SFn5o1d3rgL71dolTBjrsIyBtrucvdfaEIUAGJrv4ukIQcl9wrr+kWCfkR18qwtPyA1aNTFbBgRgehBESIrJIgfONbQffwTZbGdIz/ILoY7lVaoqza6zcd1rG+7OWlk4t8rUK8nkr/XJH2/UKuORuimsT0lzC4wQd2ibCtZ9Q3y40IIM23QPDZeIBApc/lb8JW0WUkPZKZHZJM2E/k9M3SW4XvKcExR1tXRjo07GogiWt3DH5Psv3VDxpsYmzIo95Wlz75mFN8uyv5iixBjHTgVgbQYgMph1Aqhe/+M4090BObH+XEiyPrkrXPvBqCTny1ftaj17a4dIxtCHc4vTfqrXyf2ntlfKbXH6YmOBACRJBmBDgO9gmP3DQthyRtjKUmV82GIjF5BCfk99ioX1o6aQl4o0ik4FNfF8jv+HC/f6lY7mlOkaoImm+OiwUP8lgE6SsHr6rQaXV20WPfGx5H3h4PUfVOaWDZc3AISySByZso3ggg5/UlEd5u0Zca2ZB5Q2aXO5jjdXzoSaX30CABhF9jcc1Vu4zTa5nrSbXs04WK/exJtfzvXLMcLs6TY7nSw3l+UBD8WsMjPhc9LEw3GLnOhhYfqSe5kbraeGphuKRPwkrt7qedGHgcb+271nulHsprk1IzxMeJajQNctyXJ3NDY88mKwZFJUN1lr5k9HnyR/V0cJXOkY4FBbWezC9wO+Rfy+nrzrynhKU8Fvr7uW9g2TwZ7gvSjhpsQkygTQBCDcvONApYdahXUro8SlIIEQEEHsgy/66pKl7Pui2tI6M7fFSRMaoZV06upfecqvnfSJ22z8TCDc5pBsJiv9cw/i+1dLSYZIWvyUpri5mkISFoLg6kpa+1TLSIS3lPUKyvkOt8gM968kgYqDLZCDODx0tSAYfhMkgOHDT8oU8MBSC8SpSwJAFRACDonlkwDdCBhiWxszQaKzjrtXYpKt0dh+lZ4TD0QOR/yXV5S/R3D7mGvXtE25QZ3PXm1mhK0kJSzSR15XLn1DncBJh81yuoSZcY2CF1rHHArvL6SQEjVV4QcuAphQ+h3MgA/jdQgOYrzMwwuZMl3domtM7JM0h3pnm8N2Z5hKGtu1V9m+4r6Y836RoMuB/PzUZKNrEmeF2q8j5R+yqGQf+any1IFIbAHfjYCDS9AMnWk7b44/t7lJGSfX6pF7zP0yJ/f6fitR8X5rRId6pp4QRBoc4MtUpLTEwwon6hzOknioPhp4Vj1ns0lKDU3jUYOPvSbVLJZf3mXqZ3JdTcjeXDLQU92OmK0BHnVQsTkUGuZ5BYEA028XXmkIGkeh4p99iZMUvI8mAoPkfO/WBKU80dLQwTRMesEAG3AlNTukjse2aD7dKk8NPiLqu80YG4kmLU3otsl0k4L5Z8qQLQAa1tQmauV89IrsZN0YAQW0Al6MRg0QAMm3fcfW0fXfFdhfH34NMp9TbYJM2kTQf1Azkuez3BC0eCT2MBCWc1DHi5nSn774sV6BbK7v/FhMr5mY4fIyRlWYSkdOLJpEB/2N6HtgFToNGyEAT1Azcxe5ks6P5ZJBR7GtjZMT9sWTQrlcZE9nO7XYn6hh+lgZsCRFkoM7mnoxs1xhAs4HlTzDSNiYZedVqTQ7HXRDNwCrUGVhxncUp2lMdApNRGPhP1sNiSsdeUyypDh9jsvsoo11aKhswzysZuFcltpx9oAqb+43y5g9pAMHpgEICoUjEYGjyi/uQavLnf6in7T79gxDHxQBudvK3ExR3MDzgKB6RVn6XkRFHGRnxAYL2bAzZEWSVmeKOEVbhS8Iq7icoEH4/YeV+rn8Ym0EGTr89+nRi0CgZcH9pcrhqPe0ZpGe4jeGH+lzJoGdllJZytmTQ1b1InZ7nK9Lb+fsMNvHuBmKXSkCz0lo9b2rDdpZztRlEkoG8z1GCEg6QlLjfwIrrbxha07ZV94CDpIUDhJXfr7Vyv8m/wfkkA0gKkjT9wGsYpCsLkUCkBhBFApCX4AuZDBKm7P4+a/b+brH9xXFxAQ4lOoafF6UKU/zvZpd3aKiN2S46tVb++/rBIyjLYmDhlw2KAeV/q+cikIEsoL0c01DcH1orF5zW/HPI4Lo7prUysuIGLc3XEUCcsvDHtJRwAgZXhESsUMj35a92RbCceh7IAPqWDb1lYOv5rcugSZ1htYC0lyvfRxp7zxcZuFehlknTvnwHm30khgBg8IckSAKhZCU1X6CEmj1HOr184LrY/uK4qMDT8suvIil+r7xaoAz0OpLit3cb4Q8bdjval7bQ0cJSeekt+ABpcj112lxulyYHrPOeNUSu52DEYL3QZKA8zEBg4bfbeSCD3ueHDDoMqWitZ8St8v2qX5I8STDenwnW91NYGN+PBCP9EJQfSVo40qF3mU3u5BzJgKD4n3U2YZOeFT8xsuJbVw15sXX7onJKzwqf6lnhE9LKf6cJtz9PZEDX7tElT9v3ETbzsDLoowgAshQpBIADCUBSU0hhVrMHJUze/U2n2oPXx/Z3NgCDSGb3MpM6m0uX5T9SBsmKRrCYx7aNRBtXpSG8TzaXrs0WzFG+Al2rkzQMnwr9RbY7k6T14FOb7cL5twC8+7w5Olr4LjwwKLFOb+OXRzUrrk3QMEJV5BxTk8v9abSLwzQ3j0sz2t1ZJrsoNlxavDBkoMn1nICpi5EVFupo/nCYEJpIBq16+LMaIwMYLJHtamtrE3S0MLMBGeR4nohsF4uOAyZlGRhpU6h/jZWv01CefWaX76k0h+/xNLv3icYkPc/38FV3TOwgd3IuZEAJdUa7992rBlZdd3XfimtvGDT5Cog1AYKH767sX3692e5dUE/u54sMVvygS566dy0246vg4K/XACCZqZLQNCTBXIY1u1FC9a4fWs344ubY/poLMNQYHQKjt4m8muInwlwyxcpX61nh3lOFHGdnuxMz8qX/MbDCeA3FT0zJ4arVlDBRxwiPGweE3ogIN7GBLtpcwZuSw0+CNk0VHSv4DXbxiVSbRJtu9fyDlxoR3qrIe7OO5r8KP7iUUKdjhA/Brz7U6spid7KOFuZqmQgysHJ/mGz8PaZcz+VpttKrzDYxcFYGxGaTATyknqN6hr/vzlHzLWY7vyz8UDeRDDr1qgI1vsFqQvteAWtku1WgGbDijNjVBHUO93hku1jUk0HwftAS+Ca8F9vutGgOGfQsH9JgNcHhXRTZDl6YKOLlaHb6Kgn2PK8mlKw/pE6e+sW72IxDwYEfoQHIgx9SnMNnRFLTSZ8j1cSdv6snf376B+HMwFvnS1eRNLdNflhoLyKCbqkGmzgLmD12B3mf7hM7kDT/Puwjtw/uQzLCqvbF1Tq5ldutsjjEIgJuiuyNFmzXJJGNbEhHCZ/raeFBsBzHnsQ/BW2Ly9N1DP9upBFOa+W/y3BJ4WU2eSpB8zuj5pm53AnSyu0kKH4tQQvrSCt/SL5XF4kMWuZO6A+bzXbx1TOvJiD8sl6Vl5sdvjyz3ec0Or1D9DT/bRQZUNxv6Xnep80Or8PslFwgmS5vATwT0X4G3EkNxU+12Lw2aJPu9N6ePXhqy8ijNSQDsU6Tw63B8txNfw6aQwb5PtAMgm3gE1YThE9SXdKATLvYN83l65sZlPZFE2+Evk1O7+TzvrRYsn59UmLNrjew6YfkQY4HpT6bcSQJwP+Q1XgXwqt3HVdP+uzcIhXdblWqQ7oLfNmVHzZ40yjxhNEmTohtLsPtVqXlefvI86XwGjr8LZ2Et0BtrZJLAW6yySbdQ8j9RvTdVIH9ZGLgv4OHJvY0/imAKDiLXRqhtcpuwOGHQ8dyi9Kc3ptT7b5r9TZhUtimAIMYBgdcGxiibBWKwP+hAdNkMuB+hGCf6DOKwSnIQE01w+kIBlZB4GmS9X5LMOJhgha/0Vq5k1Hna+XrCFr4gWSEwyQjfC0LLRzRWrk/6+fWQaG4XwlG+IpgpK91jPjeTfdNTY88XAMyoIAMPB9i2e4o0jgtmkgG4K+Q7hTthJX7XbFNhM/1BEmLv+nCIv2mZ72/pBf4AooHovcCeCC6VyUmT941HdyLowZ9KK15WIJpzUNSvftESvX2cbHdNQvAcC7p+QYPIiUcN7PiQ7HNAcXFxQlGu/QwvLnDFyyLcAKmGqF2MJUw2YTn698ekf3Lb7XGJbYtLSKDTaoAcok+k4aANrLn3UVGl+7TTQZanKWlpaPKA6WQH0mLn+gYfo1ssYfv5aAZ/piW9n6hZXw7tWyE0OJ30dfdJDL4JSPPe/ocFqcig+Z4IIKff35AlN2u4cUhvzxi4w2UgKxGpUE7IMIAItgyRFLCvm53zcyKPFwsGWgosU5r9XwE/gWR7U6LJpMBhpl7SBl6VnhJS4tHZdIOr1LAuYMRUxGC9iGLy1sD+5gc3hqIrQi1Iyj+r9Y9K/p06FlpI8G1Wd5X+c0tdnFO7DEbRy1KSKn5fIxsNAwN+pBEDn6oflS1Iyjboe3JxMqtCyH0ObbLpgIGrMEm1dQbthQhrNzRVIdPViNjAfsYHeIELR26wco+Goo/bmLFkaF28MPpWX5ybN9y/5RwgqD4BqKl+BMQ1BPVnhJPGmzComtHztBEn0lDXFlcq71+SFWnKCPmRUKbfL6dkRWqwGdAGfCS/LBDDII8laL4YwQjHdQz3JzUPG93cF4BVdliE2zwdjfaxRlyUM2pyODBqXqTXfywPjZBJoNjepvgBbsDQXs6EbeN7xwW2tNJV+jVny8yyCqsuE9Pi5/oaW6dIkKkrNUzwgaCAl+JqN+6Tkfzu/W08FFMe6UPRvjYZJPm3jZiiiXycLCaYGDFzZF2GMLK723l9N5stPtJsCMZu7nlz1iB5zN0zk0lA0D73r6rDQzv0+Zyy9U5pW9pc0tXNhArt9Lskh6U41IcPr+G8f2ssQrfa6ziDwTFf92qe6Bn+8JyiqS4b+E7jVX4QUNJ31vs0qTY4zUON1IRU3YNxIPFTcKDvypY+UiWIAGAhCohVe2oU5Vv2ZVes61tbJdNRXFxbbKBFd6sV2+VG0daue9S7b4oy3AYxe5kPS3URK+zgnj+iiQQef3dJr3egAwo/gejXaw12oX50SLOg0GvtvK/RKmVlHhSzwgLIPlH9Ik0AG5xcumd+1QVto2Zg14sABmZHGJ/kuana63cRwQtbtNRwnawC+hYYabR7hvWuV91o/kbLA7vqNO5I2e7a7VGm/B2eOAqBAzyA2HlVsnht7ncspBoaWEpkI4StXiOZIBh+L8GTMzoWFR5Q6ceVdc1Jp37ld8GXnuxdhETKzzZpXfl1bHtQToW+W+4fEDl5WCpjzzY5X3LMg2suDG6L/6EnhFWkAz3jDaXe1KbWzoqSnI8TxFWfmT7nr5OcifNJIMQslxiK4x9oXVKdmlWQ/FntS8ulW1iQOZqq+cpda7nMTXleUxDCw9m9Srv2KGworWG4h5RWz1PqHO5J9W5nqdTXd6C2OM0DsiEPHXvLarKHT+FayBWfYZwqHIkD/ztCJdJYFu9QEm0im0IL9v6i7bi09OriafBbffONhCU55OQOqY8EEIdSXv2tcv3XRvbHtC1ZJHawIivRe0j3+jSX2CZLdSu/cAZqSQtfBQVZUcJdXqb8H52SbX5lofnG2+6f7opJLc9OdtwRd/KGwhaOKCJnFpQ4gkDK5Y3IU2anBQjq6Ds/rSBZ9YiLiTAiJrqEK8xuwL/ycoTs+Hva+6dfcrcj5DPwOTwnjZqMdvtTjSxwgsQniwPkpDAIGfL620PQSFs5cji9D4G9+U8kMEZMcK/tIXBJr4VRf4Ufzwlu7RXbNsz4fICD6FnxCnKNcJUI/jJBBABKzKR1x8W2ej8V7uefiX8+izJADQLyE7UOU8ww2esdOzlt4DRGP5u07/SECmwPJ/Rr9oMS+4h0mg2jJN2ZSVWbtsAxkIY+A0Gv0wAWxUpD0rZFoRXbDvZsvxTXxMGSmPAO94xsYOW4vZGzespvo6kuP2QqAESWmTlVWSHpaD89syCsgKC5jfHkgFBcV936VPWOdR3ZvdJnXU093lkOw0lntSxwoyY8wgjq7DsGliiiiIDq3DCyHKjY9s2Ajm/QLpLKpXV40sIChlAPoNgrgLFyFhnsdfnMwCk5Qfa6WjPdB0j7CYZ6SBMOwhGOtCYkKxvX5ozMAxU2otBBtkPvqo3sOKqWDLQBFctmguzy99VR3NLSUbaG32d3kME25j4DhGMuC8cH3FWZIBwM+vvaraL5SYHX222CxNPKQ6x0mwTKqLELlQpIpYbbZJgZL13tKY9zasdcsv8D1OSq7ZPkW0GEW/+aALYohBASKBQavm2uoTApnWtJu2KMsA0DeBo5P23huK+iTXyEVbuTz0j7Naz4nY9I34WITv0Nulz8NuObA8EoqP5nR3vDM39EJ5W4L2ZpLmI5SeZDE6YbFLZdYVefSzzWpzl6XrZKi8vPUWej+ycE3v2DYHwtB6+q80OcUZGXuOq+AUFJMnIn9SubYH/hlY9Atdd1iNwXbuiimtPNS2IhJzpyCE9T8oegUqyDoLx1kUmNwmhXb4vLd3lc0JexXSQPP+gU0lbSPHV7HwGDckADLOQ5PWU4nar2IfnG412oSEZ5Hjk1G0N9onav/G8hG16Su3THWLRma5TFpf3joz8QL9Od0xrJe98NmTgdquAvED7IO1liLT5TyOBBgJ+B/AbgihTPuEnkuEnw/Mde6hTw+1WqSu3DcXLtx5XqiLDmz9SglWSA1sQ7v9UEd+nCPNvQbhv86+asi3Ny7EGgGVFm1SotXp+jyUDeeDK6lns+r8iDZeKhDo9w7+XFZ7Xw0PmdRAUdzxyhQCMgyTNv2u2ix6zXRLC4vDyekas1NL8bnkeHO6bB2L6yezyKcEnpwXC2/aovEXH8MuBWGK3Xmh0zatWWxw+r8Hu32CwiR8bbN6PDTZpTVq+1Du2bSxgMGXke/sZWWGxgeVeM7DcIoNNXJRVEAA1/9xwjgbErl2rk9IcktVkFwea7J4BJrsQI54BZlrol+GSSvQMv10baQS1cmAYLjezQp+G+9WLxS4WmwrKmvcGPRPOhgwwtyrFOqGHOpcDw98PGkpshgig0R6PWkaXp8jCSVi+jz3SqYEQbqjZfnVC2ZY9WMUO+a0fluDgh7LoikDJ9M1K6XQojurbUpcsfVJrX7qr6csuwQcw1e4vIayemGitsxBKOmlkxdrwdEVxOLojyiAWbgtvPcjd542RYE672LYU90XrovKrYs+/Idwq8KQEB57OAydd9JyKlxfUEAQtrJDzCcrLb0quQrPd83Bs28YAkXr2EVMseY9Um0Hsd06xDH1s4bl7X54jGYD9Q8/wywlKOk5Y+T8bFUo4qrXysLauPEvhZWL5EwKMjjbYJyzCn1or94PZdp59Sc6KDBCefHvpFeAhqc4pHa3O8TzVJMnlR2mt3GhI4abN9dT7GCjPcJ25QZ7HMyCjer06uWzzLCiNjstv/BAJRA7+CBKQPpHLpsPfKmnjt9ryzbfH9nk6gGpqdEjPRM/P6wehsn4ayi8XKY0QB+U9AWm26juHBJ++J+sfwEgJ/zCNSOw5yBrHlFgPtUbhBjIQi3Q0v6N978qrYzdfaMDqCQmG1QifDcLKHbc4+fti215UnCMZtB08VU8yng+VSL2GWmKUNPbMnEbDVETOI3jcxJ7BX6K5OCsyODe06VnZnqS4NfVBa/JzDIbg2bFtTw+EcLJ8cz/cu+k45tuiDHpJKYuulEcHAoggAXEjwoQNsuDeTShZWD8DvBljuz0VIDc+OPM0XCKUk3f+RtBeSMzxQ6xoqRh7gWw8lE6YbHy9Sgu+CDapsj7xRAQRyG+NWIJp5AGCRCA0/2GrHmLTIjPBM9LlHUrS3MFUm/ffsZsvNEAzIBlILhpJBvwJnU0oy8gTzBCrAHUkwMW7qQLz6djjNBvnSAbXDuQ1Bps4lmSEJSTNv34hREeJtel2303RJ36O+BvIAKBnBUkTOaaa5YEYAVPNhswE76YNWNl2hHlh0IdkY5AANtQLEAG/XhFxA1Lx67/TBNadPgVWBDra/aSBFV+OXhWQH4g/LA6pJs0lPZ6WF3gyLPn+J9LzvKP1jLA2ivkUv+xjqU7fwFDfMM+EOW/kwAi2PUlQoFaKR08lYHTR0uJuyBFgcUj/E33Wp0FxcQLEMZBW7qfW3f1s7OYLDSiqQdL8qw2umeIPGxiuzGQT767Pp3cGyRPvTCsou7NDUdm5J7ttNhnEJERFCIdls7aDy9Pb9Z2cdv7FlwaGZ8jbGHXe54q/gQxA2051Cu4ou0lzYhMiAXPult5PHpOnB7GDP0QAoAmESIBfpwi3DmHCRpTEffxam8pPT7meHQn4IUiK/6CRJcKvru1dc0o1W89I86Lf+LJ6/0tqXr2T0uDBU1sStLg+2gbA12kpbp+BlWpAazCywsRY0dvESj3NuU12Pv/Woc2fLxtZ/lnCyh0zOr2QZPSiAghQz4oeIuSGGppSyevjYA8REfgRNFkYH4JU6rHHaTZkMoBU6VDHIaiVWT1/hchATpUuuxfDuUKqdL6RVOmXIBpPlX4ytm7C+YS8KuTyPqdotmEtuM7iaEaq9AjglvINHROE9Z9h3k+VAS8ERR78HysCg1+WtYqUrkW4Zx1Sla79JYX76O4m+B3grXpWdSIpfkesw5GW4j7/14CZGbE7AGRVmOLfi3r7yUY+z+GsiHn69XdOsWhpYV8DHwNGmN9twExysHtqy14Piymx0ohtAJcz/GLFCeAMAlObttnulhDFaCqoIXTZXj0sI0Ji0ixW7Ki3CbMJCCG28mNMtCczrUdlamb38SYDXaqDOT3sB27ScngxuCxD30rMw5nuVxOA8NR8/y06il+rpSUIelGy8dAgIkhd0EEGPs8kSMv66lLPFxnYRF4mA9nSLddNOKa2huomCIuVmgrKoNFYuV9TrPz/CTJIz/M+orUKUEsCYkZAflXn8E1Ypj47KGTge155CQbvNSXWWexCM20GQcA8US2uH4WLG05iPEwFgABCgz+CBDwKCWClHyFsAsgamRASJqz51CysuyG232ggvFWB92aCqo/DD5EBQXPrwJssdg9A++LqNjqa/yzWqxDCc68cHI48wzsUlV+lobiINF8g4gm9TRBiujwlgNC6llSbYa08y+67Kc3lzcnI9xeabPwgk0243wjuu1ZhPNg9SFacqmPExVpa+EkhJ+EwwYjz9DahRmfn/ATNjzE5pMcNDumeVIfYv1WB5LLYfbdlFvhvaN+zqhMEAcUe/2xhcQq3wuDTs3ytwSa8ZGDPWl5uXeBr0krEaeF2q3Q2YYgml39Dk+NZpMkpfV2T61mgyZ1gRW63yuwUn9bkCkvlbbnc62orNy/FWvp/IJ2eW5XpkmhtLlemzfWUa3P5cm0OH9DmcE2fejYT8gqdM9BPk8Mtke+zfL+5180O4eyzQRO+NZ0SubUbMXFT9OCPIABcJoE19TJeEbx0HUqe8MGsjv6PTlNPwa0yu0QnQfG/RK0OQFAQK54iRTTCMwu560kanJSitQkdI6yBdfZQu1b5AStUmIkmA+GEySY2ed0cjG033jmlfZuCAN22sLK/2SE8CF56RodUoWPEOXqb9AbJSGs0FLdNx4i7CcZ7UGOFZSweaWjxd4L17iNoYbeW4j8lWeF9g016HeIDzA4xYHQIz1ic4n1tepQVQ0Wj6+6oUhxVziOAYG7rX2k4W7ml12Rj9n3nJ9uTJdut1VhHpWntfovWPs4Cn1i2ooUZikt1UdvyBHPHjs2IDvxHw60CY7asBYakCdGv54JrGV4D2b2U++m3aBh3KgRXxbZrMtzIrdJI6+/HPev+xDwfhwe/QgARJBAkAGzchxGyBuHjPvwzZex7D0Gy1di+AcBgRrs0mAitBYes/IwXmRySN7a9AoSnujiaoPjjyiAP7kdLUA/gJVCRoBX0bXFKg6CNJlxiClRT7s80m/+MDjiNAIeMS1m9xBRLdrkWlroISvFYhJoDJlbo0qa7vyt45ZE0t1qemzP8rNaF0n/aFgk3mB1C58v6l7eFqUQmNd7UttCrh8EBU5JTZXKKI45/FNKn7LIkTVizWJ4qxA5+WSIIYCzIB4q88L5MCKox7x4kJrzX6NxPKfQpPUmwfgQGFsVoJdSRrHQoMy8Y6BEL2UlJGkCykN0oytj1jcnO3RtqJvvZO6Un5QKg9W3+0tP82xa7X8lPd4FgsonPQSi00S41Ozgmjjj+0dDx660J4z/8Biv9OHrwh0kgSABj31dI4IX3ET7mPYQ9/578fcILq9cbx7/bME+i261Kz/cN1rPiMoNNfF3PiosNNmGBxeH77y29xMZDhd1uVauCgMvgEN8M72MXXzWw4hOwjh7ZzpLvHWK0SW/I7WzCEj0r1KQXeJvlFNVsFNcm6BjpYYLifmmVF4jXk4jj/xYggCNlwodjVBM+OoaN/yiGAIJagCzvySSgEMG7QVmN8DEfoKTn3lmpH/NOg5LtMMe/spdohLntNf0rDd3CiUxPjWz3qpZXDqvfp2tJMN9hDLqWuNWwPdSu44jGDZLnFWAMs0slJM19nWEvvy12cxxxXPIwih+2Shr//jJs/NpoAoCBHxQ8TADvIuy51Qhzg7yjfD73Hkp85u2X015YfdH99S8q3GA99vXV0/znFjbQNK/FOM4KYBcCp7W/I8Xc/3toJryXkzDuvc+wsWsa0QCCBBAS9zsIfxZkFcKefhthz76N8GfeQi2efWuuadyqLrF9/9+BEilJ0vzGKwdO7hi79WIA/CBC2lD24NjknQgHPw3QxsDXoik5HS8GwJB6Tf/ZshbXlMENNqF0J3+7jvW9YLAJ/cCwG7kdloRvHapcJ9yHkED/4OtxNkZb+wh/i1Af8Hfs9lMBNGu417CvUofjjP43zQYco2txte5CHqMBtOPeG6Ya896PsrHw+YjBH9IEnn0HYc+uQvgzIG8j7JmVCHs6KPL/q1CLp1cuMIx785TehZc2EA4rCCTDreoEqasuOhDeobu/a5rD90Ka0zsOziVya0aeW53q8N+V6vJPaFUQeIB+orbRKdbFxmU9vbenu/wTUp0+d3oBf2Xs9lgMHryqpdEmzNQ6J0F6vJ1phV65inQI4KOS6fLfm+rwT4D7kOqQuFSHl4dPPcU9A6HQRjt/ZVOIBwC1Cjr3rr4J+kpz+se06xVosg8EJFxpXRB4ODUvMB7yHYRWvM4nbhk22ZiVXz4y1QnHkAZ3LWl8Be+8Ikucn9LiudUefMz7f8oGQvntH5RnVgUH/FtBAlihfI5eibCnViBs1AqEPbUS4U+tQImjli8lnnzz5gtxY/5eILyVK3Cd3i7OT7ePi0qweVGgrLaUQGp4CMmG3H9R2/MEsyaX/5CwlSE9K+z6n5LaNqAdQDqzqN8CvstelSgn9pQ9JJEK3qZKm9BbB+HwP+wraxgI4fC3LNlKf2f6feU3Wkl1ktkuuUmoJ2jlj2vp0p7QF6yLg9cmCPwdaVSGh91g8z6ipYVNEFHanuFTI/sd4V9KGhhxIwHZj5Ul6O+0lOdrba4H0qb/Ar4tBC2+leqUCsPJS4PnA0FRkPIs0hMVsnG3zvffS0KCWYpH6Xm+e0Ltg0lRwm9iOQmLG6lkD9yu1Ukdekv/MtqEL+FctFZuldo2NiON4TWRb28I0U7L59tl5Ald0p3lbRur5BWqOGZhxY7pTu8VIWnjktpf0bf8KqNd2i/Xy7R6VnQc4Ceb4AF87sgcv9aU/Pw7c1TPvXscf3a1Mg0AEghpACECGA2DP0gCTy5HuCxvImzUcoSPXoWSnlj2EfHkkrwM9/qmF6X45wPPdAid0/K8Pp2rsknxGecVYMB0iMNlBysa8jby4UzRMux+Up0DxVb8SEd5dtx017SrWrlEp9HhvSOruz8b6hIq6eLKOlvs0mBIrKqzTbjMyIrdLC5psMXhK4LcetBVRrZglhOCOKVBlxWV33zloOo24Fkpv3Ud4h1GVrzTZJcGmPIESu/k20ZWAgJ/C/C+NNt9fcHXRB8Krsrljqbkego69KloTTDc8xorx2korlRj9Uww2vmH01gxN20gDCQMS80r+zfJ8KMsTm/PtoNXRU2HhnreJ/S0sF6Jd+C+JhjxAciDqKHG99Ez/NPaXO47GDgkw30KCURhH7K7v4PBJvU2MvzTBhs/1shKI0wOyRq63laFgbtlYsnlTmS4/CXglZrm9PeGFHxtg4lsupZUq1v38DGZhYE+cD8NLv5qguaqtTT/EyQZ0Vg9e9W5nM9oFx/qCsVYIKGMS+hqYMTndKywyGgT3jGwwisGRngcclaGBjSQh8Ul2PQ2STDYxOVGm7TaaBNWw2eqwz/tij4TKb2N3xMsIfep2ekbBnVFoJx7Wn7pVbHTqPMKs+edTknPvr0Ef2bVybAmIBNAUAt4ark86IEEZHliWVDeUOTxZQgbtRIlPL50V8qTy/6bOuq1tNhjXKLA2xZWXZaZHxhpKvgbSrLJZCDcpdRIUPI2wtwZ5rkgmZA1N9fzPgw8Hc1vvmZwDWW2ietIxvuHxSHOzytZJD+gqS5/iY4Rj5GM8JOOEotIWpB0jPiXjuG+bFdYJq8KkdljbyQp/hDJSr+lu7zlV/et6qFn+J9JWvhVx/Df6hj+oI4RviYofq+OEuansWI3eLihepaOEcq0tLhTRwvf6BnhICzFyg5nuZ7f1NmevPZ9y24kaWGLJpf/UmPlvtDmcocIij+qo4XPDHahZKhnIWG0e8vVlLSDoPnlHYIDOoQgGayD4CwoQNt+YGWU5qCnBaVGIcWfvKx7eWHrAvl4i7RW7icoCkNQ3AFNLv87QQufw0AFT8ys7v6hioMcdyzD6RumtwlPkYz4s4EVv0h1BeRI3VuH1mRa7OK7Opv3Z5NNWJKW589X55QehLqSigesBxKwHIYM07AKZnF6rycZ4V0oaUfQ/EGCEleSFC+nAIQiuW0K/FfCcjWQMgEerpQENR6+1LHCO3qWW6VjxdVmh3fmNQMmUgZW2BXMC3LUwIoHQCBlPlST0tmFoVBeL/IenFeYn15xQ9IzK98C4yA2+q0gAYAmAATwpqIFRJHAUoQ9HpRHlyjy+HKkenTxb8kjF1dqHl9yzUWZ61xY4BCcdFlxVe9sd4OApwuPEBmAh6YVckIKq1MdPs7s9AogRpu3QktxB8CVG8jgqgE1rJ4Rd8Ib1MjwSxjI6Cx7hvpHaGzlsmu4JtfTT53DVcmJRaz8T20LvXKh3ZSc8Tdrckt/hwFndvBTu/Qu60vK0XkSMtrEpQab8IiBEQNaK/crBCjpGbG2c69AOz0jzAYvU4IWfzfYxakmp/cxk01cDo5h2lzud23OhEJISQ9ZhwhKGKq3i/elQW5GSvgCzlNH8buvu2NyN5NDelnLViKS5vd36lNxReRtCJGBRo7U5HZ2yC/vCNMBmJJ0zqs2G1j+NTmKk+L+uKyocjD4oijX5/neaJdGGBmJhbqUypuW/zPV5R3etnt5BBkEhhE53Hg5KUou93soQ9I1d03K0jPiNg1MeWh+LVRp0tvFgSQjHFIqMpWuS7l9Qr6R4W++fOhCwshKFXBNhJX7w+wSHwKNyGz3jlY8WL3IbJc4SHtO0sIGLaMUe8nMK6eu7zXFAgQHuSi79qs2X92vuovBJuyBeB2NldtlcUkvWOziOK2V26KRp0rcVxk9pH9F3qPzDnLsym6q0cs/woEMgAieACIIEUCQBEIE8BiIQgL4I4sRJsvrCBv5BsIfXYYSRr72TsuRr/fVuhedMXnnPxltB3v11/Sf3PVsLNbnjEjNQCms+htJiUcISvwGJFgxCVKAQfLYzVcPnMzoGWEbZEE2MsLCPIjtgJJ0Tt99GlYOKT6myfH0UUOQDXhzUvw3ofT1Kdax3TS5nh/ldOoOoeaKvv7eJKVoJK0KfA9CG2bkDI2BFVdoaB8yMPzOVgXeOwiK/wFyW5oY4Q1/MBgtw+UdBd6iGiADakIhzINNNulxguZn6Rl+GajPJO35GrQHguJ+7dS7sq/Z4Z0FORB0jLCrc79A1ApVmAxoOGfuayPrHW2khKFmVhxuhOhJiv8ZBhxJ8ysgv4Ncfo32ntQxXLhGRKt88Rat1fMdEIKOERa37lH+sFZOzxckAyv3QjA+5gcLK8q1Jq+BKky0sAlIiKSF9+G7W/vWQP2FnVraW6fN5RaH+oe6DHoWQuxlwvnJYBPKDCz/hJ4Vq2TXeSAJhl/bqqgS8nj+oaV9J00s/0po/0h07ANTHPELOEZKrmdxcbA+qZ4RH5CTnNBiHeSHjN3vvEM7anl2wqg3P8CeXHFSmRIAAUSSwBJZcNAERgZJ4OHXFXlkEcIeek3+Gx+5BKkeWvh10sjXfCkjF91kcdc2MKJcCoAfAuo6nJ+Q5Gaingzk0GU9K05t5Qy4INIyI18qTLX7B2it3FZ4e8vThAFTKYUMvHUGRny9Vy8lmazJGbg7igysnkqFDLhvIRoU2qhvH3PDqcggM0+ulYDdWlBDGG3eRTCgDIzwGZAESXG/gcZhtonTQqed6vSPVsjA8xtJe/qZbPwUiDeBNzFp5d/XMfzrEKkKqjZJ8z916VveTyEDP1zH56ciAyhHprHyx0ma/5a08oeBGLQU/72WFvdpGf61NBufk8qIPZSYf+kEwXBloT7IfLGjNpf7EoiSpIXVmQVlo7VWWd1XyCCXHysnG83lfoLlZNgHqjIZaPEThQz4DyDQ7YqeVZ0MjPC5QgaeN7KC9/jagTNS9ay4DohRk8udJBn+EMnwn0FIP0xtSEbcpmPF2jZFZXkExf+qZYAMhJcjrzOEDgPLOypkINVpcj1vKFNUt0qdW3qnktNCPJ5V6B8Ru98FQYp7WbfEJ95YiT++7CT2xJtBDWCxMhUYuQThIRIIEwEQQJAIHlyIsAdeVeSh1xH+8BKU+MArm1o+XDtS89BrV7X9O9TtSxUyGXBgQKxTCtd65Dd0GHZ/C3Uut0p+o1LcluvumNaNpIVVcuJUK78disvCnN5k946Dt6pMBrmlvXWUOEHJN8D9lpbv7926oCzTyHCsJtfzcz0ZlPcmKajvJ57IcElyufPrCqfqjax3saIZCJ9lFXq7kzS3E4gFSqG1KfZ3hZD0NIeXB7UYNAOzTbiLpIV9GiYA53ioc3H5bffwb6ZmuLwSPNgkxf3SpV9lX7PdO/uMZAAEQ3HfG2xiQM/yz5I05yYY/mGTI9D92qAdIcsV6EaApsCAlsEvu7LXZCOE8MO90ORyP8Gb28jyc9r0KH+gXjPwDTPahAfl2ocUd8xok55pRfs6dezhv0WeJkCqcoUMEuBe6Wh+k3z/crm1Jpvnct1tEwyQpt9oFyZqoSCLlT9ptgkLMgq8wzMLfHdmdi8bnFkYGNK+cCLVyVXZnqCFzWDwhCmSJT/wP1BxCTSLrF5iK0iDD7VCQpoBkIEcoQjZzmmYMipk0CY/8N/Ie3RBoXtq0b9aPLH0NfzxZX9ij71RP/gjNQFZgAQWRhDBKwgbEZT7FyDsvy8j7IGFSHX/gr8S71+wMuW/tfcRD86/PMMtv23jOB1kd2hBWVoEVZz1PBG1PVswa6zcB7DMpaf5z7r9d1I7g427m6D4L8HwRFL8ZwaGf5ek+T3KQyQc1+ZwRRl2P0vQ3D6NVThB0vwms1OabmSFJbIGQnuR2SFO7dLbJ9sM4LgZecqSJpCByS69AWRjYIUv5IcWgtNo8bDWyp+AN2N6nn+OmZW2ARloc7m/SMozwGATpkMBWYLm/jAw4qsmh1SjY8TNYFfQUdzvXfpW9TM5vHMJphzpafGLTn280TaDmvcJPcNv1ECVJ5rfA7aKyO2RAO3FwAgzNLQEGZJ/h2mE2e4dSjDiSjlVP8UfaFUgFrcprBimJAzhEajcHfpKV0HJOi0t/QZzcpLhV+pobjUsW0KRVpIWgQySwAnMaBMELSMdBXWfoLjalrker4kR7m/Xo4wB0tDS4u/gL2FgxampTqks1eWtsDi9Ve2KyvLA6GpySPcTNNTP9NSRFP+J2SbNTHV6p1kc0kyzQ3qqbXH59QYbaDsBpM4tXREmA0ooCSV9bVMQeCD22i8o2rzwZrvExxZPw0cu/hl79I0YAngdYQ8titYEQGDwy7IAYfe/hLD7ahF2by3C7n8ZYfe/ilT3zD+RdH/tyuR75z9I3v/SjcT9rzSjGMT/M8iJLaRCvU1YAzUHU+1iOCckANbs9Qw/SW+TNlrswnxIiw5GNQvLFcnGPop7jbCWvklSnJJ9ihKPa3NLe4K/gNku9iUYfh5BcR/rGW6bjhW26Fn+Yyhcml7gHX3NoEraYBM+ggHepqd/EBwv+75abZrLK0GxVLNDeqXLoDIT5Gk0u8ThBC2+SlDcJj0rbtMxwiboS0cL72qt0n9g2c5A8+Vain9bRwtbdKy4Tc8Kn0DfZrv41tUDq5gMp3+MjpE2me3Sy5f3iXY6Gsi/qdEx4rwUq7RTQ3GL4e0cuT0WUAWLZPhJBKjoVu470iocIaz8YZIVVxts/D3F7trkVoW+Ishboab4zekuXzHsB+XuIVkO2BR0NP++nhXWg/YUIoOtW5FswW9f7GsD16MDO4bV80WK1bPfyApzCx5bSGRA1SaGDxAU9x5J81th2qZnQfidWYU+eWkYjNFmh9CHoDyzCYpbr4M2jLAVCgrpWH5mVq+ya8Boq7aKO9S5nokQHg/TBC3DFaut3Gdqit/atrDsrKpKnRMs7lXpLR5dNF418vWvsJFLFTIIaQEPvopwIABZE3hZESCAoOBABHfPj5B5CLu7FmH3vYrw4XOPJdw99+Ok4bM49d3Tnbp7Z7dPa0JV5IsBsBNc0KWbZqDLoOmmDr3L/tW+qOzG9j1mRC2pgUX98oLKy9v1rripQ9/yq+AhD20D1dhSXK4Ft1aL0/+ohoFS39JxrbW+TiEYR9O7e6+Avjv0r+zapX9l1/ZFE2+8on9NW6iZGTru1X0ny0vF8n3pVd6xXfdAN0gdH5nbAkrIZ/XwXQ39gLTvK93Yqbj8+raFSsankpL1SVDKDapDwVJjqF2ngVOug2N17jWpXajf2FR1YLzVsULXFreXMilsabemrLNfPrSGMNvFbD3DDyZp/h4jKxalw9JeEEAoGmpCjpb2ZJvoaHK5Zdh8I6wkXD+k+iY9I2zXMH5EMsKHITIA2EcsbdEq33ethh2X2yKXt5rt/htCDk+QAq8NXGuR/4bQdbbr7bsJDJKRx7l8qIcAR6PQ/Yd7D8QJLuZGxntzixwPpbmNu1ZOpoJheArtyWxh9eSCZPU6/8lzmoS27lUt1Y8vGa56eNFW/KFFJ2WN4IFXEB6aEoQ0gf8uQPh9LyH8XpBahN0TSQTzEVYyD2HD5yLsrjnK590vASkg1dAZXyUOn72w5dAZj2qHTrtdP3RWW9NjC4mL4nUVAXjooNBqZp6PuqHv6d8+lxLAgKiVlxalE9psPp6XoYnIfqTarKfFLRpbmbwSEEkG/++heXQhnfjQq6+rHlz4K/bgIoSNCE4L5OmAMiXA7wESiNAIgAAiSAC/azbChs1UZOgMhA2dhbBhcxE2vBbhQ2aghMEzdifeOaM2ediLo4ghL+Zr7ph2lWbYnLTYt8X5BGQqysgLdDHbvP30lDDbzIpV1/aIdom9ZAG1Hxy+PMImLpdrMOQ0I1X8/3OAUdIo2x+EtSTDV69vRg2R/xcgH32lQ4sHX/GoRry8Fwc7wH9fkbWBBlpApCYwfG6QBEBmIWwoEMFMefCDYHdMR9gd0xB2xwyEDZmDsCGzET6wBiUMnPJV4sAXVyUNmFKlGTR1hPqOGlbdt+YGXf8p7dPghxrgJ9sOntoS1FccP/Xan/w9glRnbjnVGbikZhYKrS2seJ3JJhSY5IIe4gotJfwAy1VNq8N46QDcaiHQqksPKQPuV+z2OE6BYneymRrfWU2NuYG0cx3kuI44ogHzUe2DL/VMun/+StV9L/2M3f8Kwu55KVoTiNQGYkgAuxMG/QyEDQYSCBLBIJCpCBswBWH9axDWfwrCBkxF2MDpCB8wDeH9apCqd/UviX0mf9qi96TXkosrK5J7Vo1OKa64p2VRVW+id5WzRWFZTmKh/9aUovKbU4q8N5O9At1a5pX9W+Py5hAFkou0i31JuzBCxwrj9ZAAlRU3EFbud7Aqg2eXhhaPGhwx/v9xxBHHmWH67+wuLe6bP1Z1T+0O/O6XjsmEECQBHOwCIW0gggRkTWDI9CARRJDAoBcRNhBIoAbhQAZ9JiOsTzXC+kxCWO9Jyv+9a4LyIsKKa5CqZxVS9Sg/qios/y6xR/mXqvzATlVeYHNioX9DYr5/Q3Kef32iw7sp0S591tIhHUih+e+1FP+XXLBFLmQKa+/BYhhABKwwDQxPsdcZRxxxNAFg5NOMWJCbWDJ3umr43C/x4fNO4sNrg1OCIAlEEkFYG5geJAIgAdACFCLA+k1GWF8gAiCBakWKJyKsVxXCelbKgnevQBhIj6AURkhBBcLyyxHuKkcqZxlKdJShJLsftWR9SM1IUHgluvy7nHEZgma4eeAwE3t9ccQRRzPR0b2UbHnP3P6JJbNfUd019xA+dE6dPEW4U7ENyNpA7JRgYGNEAFpAiAgm1hNBUZAIelTKRCATQmEAYfl+hOX5EJ7nQ5jTizCHhHC7hFR2ESUyAkqmBdSS5pFaro8XKbxMDFpa/NVAc7NSXVL72GuKI444zgGpo+aktRw+Z3DisJkLVUNn7ceHzDyG3TkbYUNmxkwJIkmgIRHgQAa9gAgmIqxI0QrqiaAcYQVlCMtXyACIAHcpZIA7gAgklMCKKIkBIhCQmgZf9QgiCFVmtgpfGWjO37GHP2r9N4444jiPSH1gTppm2Kz+yUOnT1cNmbYTHzLzN2xwcOUANAIggjAJBKcFUUQA2oAiQAKyABEUliGsAEgggLA8RSuQNYIgESTYJJRok1BSUCNIiSQCxa8bPo+SlPCRyS7eB+G1seceRxxxXAC0f6JWpx4+k20xeKqYMHDKh6pB0w/hA148hvV/EWH9piiEEEkCxVVBbSB6WiBLmAj8YY0AcwWnBkGNIJERUTIjhqcGmlCVYIUE/iQo4XMdzVVk5VXcFHuuccQRx0UAGBotw2Z0JO6cdmfiwClTEvrVfIT3nXQQ7zv5N7zvZIT3nYKw3pMRVlyNsKKJCO+paARRRCCTgKIR4HmKNiBrBLKNQEKJrKQQASMiNSPIZdrk1FbgP2DlPtUzwqQ0p+RqauLMOOKI4wIDCqfohk6/oeWAiYNb9J/sTew7cUVCn0nbVH0mHcaLJh7Fe1adxHpMRFjPKoT1qEJY90qEFUbaCYJTBKcPqZx+lGD3oUS7DyUzXpQCREALx7S08D1JSzt0DP+G0cY/Dam45TRgccQRxz8TEA9gvLuqlWXQlNtS+lXf3aK4Skguqpib2KPybVVh+Sa8oGy3qiCwHy/wH04o8H+nKvD/oMrz/5jg9P+Y6PB9l2j3fp1sk/a3YPidaopbT7LCUpLhJ0OarjSHZAWvu9hjxhFHHJcIGAhZ7T+lPdFr4r/VvSpc6p7lgxLz/fcSPQOPqbsHnlbnB57RunzP6PJ9j6c4hPuJfN9Ag1O0Q2ZaSBJxsQOc4ogjjr8BMMpDIz0+4uOII4444ogjjjjiiON0+F+xnXASyD4nhAAAAABJRU5ErkJggg==" alt="Hyundai Polytech Mexico"></div>
+      <div class="header-titles">
+        <h1><span class="header-chip">HPM</span><span data-i18n="title">Dashboard Integral de Hallazgos</span></h1>
+        <p data-i18n="subtitle">Auditoría Integral de Hyundai Polytech Mexico &nbsp;|&nbsp; Seguridad · Calidad · Ambiental</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="filters">
+        <select id="filterArea" aria-label="Filtrar por área">
+          <option value="Todas" data-i18n="filterAllAreas">Todas las áreas</option>
+        </select>
+        <select id="filterMes" aria-label="Filtrar por mes">
+          <option value="Todos" data-i18n="filterAllMonths">Todos los meses</option>
+        </select>
+      </div>
+      <div class="badge-pill"><span aria-hidden="true">▣</span><span id="data-date"></span></div>
+      <div class="langsw" aria-label="Language selector">
+        <button type="button" data-lang="es" class="active">ES</button>
+        <button type="button" data-lang="en">EN</button>
+        <button type="button" data-lang="ko">KO</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="category-row" id="categoryRow">
+    <div class="category-card cat-safety">
+      <div class="cat-title" data-i18n="catSafety">Seguridad</div>
+      <div class="cat-total" id="cat-safety-total">0</div>
+      <div class="cat-breakdown"><span><b id="cat-safety-open">0</b> <span data-i18n="openLabel">abiertos</span></span><span><b id="cat-safety-closed">0</b> <span data-i18n="closedLabel">cerrados</span></span></div>
+    </div>
+    <div class="category-card cat-quality">
+      <div class="cat-title" data-i18n="catQuality">Calidad</div>
+      <div class="cat-total" id="cat-quality-total">0</div>
+      <div class="cat-breakdown"><span><b id="cat-quality-open">0</b> <span data-i18n="openLabel">abiertos</span></span><span><b id="cat-quality-closed">0</b> <span data-i18n="closedLabel">cerrados</span></span></div>
+    </div>
+    <div class="category-card cat-environmental">
+      <div class="cat-title" data-i18n="catEnvironmental">Ambiental</div>
+      <div class="cat-total" id="cat-environmental-total">0</div>
+      <div class="cat-breakdown"><span><b id="cat-environmental-open">0</b> <span data-i18n="openLabel">abiertos</span></span><span><b id="cat-environmental-closed">0</b> <span data-i18n="closedLabel">cerrados</span></span></div>
+    </div>
+  </section>
+
+  <section class="kpi-row">
+    <div class="kpi-card kpi-detected">
+      <div class="kpi-label" data-i18n="kpiDetected">Hallazgos Detectados</div>
+      <div class="kpi-value" id="kpi-total">0</div>
+      <div class="kpi-sub" data-i18n="kpiDetectedSub">Acumulado del periodo (todas las áreas)</div>
+      <div class="kpi-progress"><div id="bar-total" style="width:100%"></div></div>
+    </div>
+
+    <div class="kpi-card kpi-optimal">
+      <div class="kpi-label" data-i18n="kpiOptimal">Procesos en Óptimas Condiciones</div>
+      <div class="kpi-value" id="kpi-optimal">0%</div>
+      <div class="kpi-sub" id="kpi-optimal-sub">0 de 0 procesos auditados sin hallazgo abierto</div>
+      <div class="kpi-progress"><div id="bar-optimal" style="width:0%"></div></div>
+    </div>
+
+    <div class="kpi-card kpi-open">
+      <div class="kpi-label" data-i18n="kpiOpen">Hallazgos Abiertos</div>
+      <div class="kpi-value" id="kpi-open">0</div>
+      <div class="kpi-sub" id="kpi-open-sub">0 críticos · 0 mayores · 0 menores</div>
+      <div class="kpi-progress"><div id="bar-open" style="width:0%"></div></div>
+    </div>
+  </section>
+
+  <section class="chart-row">
+    <div class="chart-container">
+      <h3 data-i18n="chartAreaTitle">Hallazgos por Área / Proceso</h3>
+      <div class="chart-sub" data-i18n="chartAreaSub">Detectados vs. Abiertos actuales, por área de la planta</div>
+      <canvas id="chartArea"></canvas>
+    </div>
+    <div class="chart-container">
+      <h3 data-i18n="chartStatusTitle">Estatus General de Hallazgos</h3>
+      <div class="chart-sub" data-i18n="chartStatusSub">Distribución Abiertos / Cerrados</div>
+      <canvas id="chartStatus"></canvas>
+    </div>
+  </section>
+
+  <section class="chart-row secondary">
+    <div class="chart-container">
+      <h3 data-i18n="chartTrendTitle">Tendencia Mensual de Hallazgos</h3>
+      <div class="chart-sub" data-i18n="chartTrendSub">Detectados vs. cerrados por mes</div>
+      <canvas id="chartTrend"></canvas>
+    </div>
+    <div class="chart-container">
+      <h3 data-i18n="chartSeverityTitle">Hallazgos Abiertos por Severidad</h3>
+      <div class="chart-sub" data-i18n="chartSeveritySub">Crítico / No Crítico</div>
+      <canvas id="chartSeverity"></canvas>
+    </div>
+  </section>
+
+  <section class="table-section">
+    <div class="toolbar-row">
+      <button type="button" id="btnDeleteExpired" data-i18n="btnDeleteExpired">Borrar evidencias vencidas (+7 días)</button>
+    </div>
+    <h3 data-i18n="tableTitle">Detalle de Hallazgos</h3>
+    <table class="data-table" id="detailTable">
+      <thead>
+        <tr>
+          <th data-key="folio" data-i18n="thFolio">Folio</th>
+          <th data-key="categoryLabel" data-i18n="thType">Tipo</th>
+          <th data-key="area" data-i18n="thArea">Área / Proceso</th>
+          <th data-key="hallazgo" data-i18n="thFinding">Hallazgo</th>
+          <th data-key="severidad" data-i18n="thSeverity">Severidad</th>
+          <th data-key="fecha" data-i18n="thDate">Fecha Detección</th>
+          <th data-key="responsable" data-i18n="thResponsible">Responsable</th>
+          <th data-key="estatus" data-i18n="thStatus">Estatus</th>
+          <th data-i18n="thQR">Código QR</th>
+          <th data-i18n="thActions">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </section>
+
+  <footer class="dashboard-footer" data-i18n="footerText">
+    Los datos mostrados provienen en tiempo real del Formato de Auditoría Integral (Firebase). La evidencia fotográfica se conserva 7 días o hasta su borrado manual con usuario y contraseña. &nbsp;·&nbsp; Documento para uso interno de Hyundai Polytech Mexico.
+  </footer>
+
+</div>
+
+<div id="qrHiddenContainer" style="position:fixed;left:-9999px;top:-9999px;"></div>
+
+<!-- Modal: Ver Evidencia -->
+<div class="modal-overlay" id="evidenceModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="evidenceModalTitle">Evidencia del Hallazgo</h3>
+      <button type="button" class="modal-close" data-close-modal="evidenceModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-meta" id="evidenceModalMeta"></div>
+      <div class="modal-photos">
+        <div class="modal-photo-box before">
+          <h4 data-i18n="beforeLabel">Antes</h4>
+          <div id="evidenceBeforeBox"></div>
+        </div>
+        <div class="modal-photo-box after">
+          <h4 data-i18n="afterLabel">Después</h4>
+          <div id="evidenceAfterBox"></div>
+        </div>
+      </div>
+      <div class="modal-meta" style="grid-template-columns:1fr;">
+        <div><b data-i18n="notesLabel">Notas / Comentarios</b><div class="modal-notes" id="evidenceNotes">-</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Login para borrado -->
+<div class="modal-overlay login-box" id="loginModal">
+  <div class="modal-box login-box">
+    <div class="modal-head">
+      <h3 data-i18n="loginTitle">Acceso Requerido</h3>
+      <button type="button" class="modal-close" data-close-modal="loginModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="text" id="loginUser" placeholder="Usuario" data-i18n-ph="loginUserPh" autocomplete="off">
+      <input type="password" id="loginPass" placeholder="Contraseña" data-i18n-ph="loginPassPh" autocomplete="off">
+      <div class="login-error" id="loginError" data-i18n="loginErrorMsg">Usuario o contraseña incorrectos.</div>
+      <button type="button" id="loginSubmit" data-i18n="loginSubmitBtn">Ingresar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ FIREBASE ============ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAySFLSUFHbKJLFgGmruhl0eFc0KwCkfNI",
+  authDomain: "hpm-seguimiento-integral.firebaseapp.com",
+  projectId: "hpm-seguimiento-integral",
+  storageBucket: "hpm-seguimiento-integral.firebasestorage.app",
+  messagingSenderId: "454784160390",
+  appId: "1:454784160390:web:69c73a56cb18fb6d153707"
+};
+if(!firebase.apps.length){ firebase.initializeApp(FIREBASE_CONFIG); }
+const db = firebase.firestore();
+const HALLAZGOS_COLLECTION = 'hallazgos_integral';
+const SEGUIMIENTO_BASE_URL = 'https://calidadbackupsistema-collab.github.io/hpm-seguimiento-integral/Formato_de_Seguimento_Accion_Integral.html';
+const EXPIRY_DAYS = 7;
+const DELETE_USER = 'HPMIntegral';
+const DELETE_PASS = 'HPM3508';
+
+const COLORS = {
+  blue: '#0e75bc',
+  blueDark: '#0b2d50',
+  cyan: '#42c6ff',
+  green: '#16834e',
+  amber: '#d9901f',
+  red: '#d7263d'
+};
+
+Chart.defaults.font.family = "'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR','Segoe UI',Arial,sans-serif";
+Chart.defaults.color = '#5d7186';
+Chart.defaults.borderColor = 'rgba(13,44,78,.10)';
+
+/* ============ TRADUCCIONES ============ */
+const CATEGORY_LABELS = {
+  es:{safety:'Seguridad',quality:'Calidad',environmental:'Ambiental'},
+  en:{safety:'Safety',quality:'Quality',environmental:'Environmental'},
+  ko:{safety:'안전',quality:'품질',environmental:'환경'}
+};
+const AREA_LABELS = {
+  es:{production:'Producción',injection:'Inyección',assembly:'Ensamble',welding:'Soldadura',gp12:'GP12',quality:'Calidad',process:'Procesos',maintenance:'Mantenimiento',molds:'Moldes',incoming:'Incoming',warehouse:'Almacén'},
+  en:{production:'Production',injection:'Injection',assembly:'Assembly',welding:'Welding',gp12:'GP12',quality:'Quality',process:'Process',maintenance:'Maintenance',molds:'Molds',incoming:'Incoming',warehouse:'Warehouse'},
+  ko:{production:'생산',injection:'사출',assembly:'조립',welding:'용접',gp12:'GP12',quality:'품질',process:'공정',maintenance:'보전',molds:'금형',incoming:'수입검사',warehouse:'창고'}
+};
+const CLASS_LABELS = {
+  es:{critical:'Crítico',noncritical:'No Crítico'},
+  en:{critical:'Critical',noncritical:'Non-Critical'},
+  ko:{critical:'중대',noncritical:'비중대'}
+};
+const MESES_LABEL = {
+  es:{'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'},
+  en:{'01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun','07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec'},
+  ko:{'01':'1월','02':'2월','03':'3월','04':'4월','05':'5월','06':'6월','07':'7월','08':'8월','09':'9월','10':'10월','11':'11월','12':'12월'}
+};
+
+const T = {
+  es:{
+    title:'Dashboard Integral de Hallazgos',
+    subtitle:'Auditoría Integral de Hyundai Polytech Mexico &nbsp;|&nbsp; Seguridad · Calidad · Ambiental',
+    filterAllAreas:'Todas las áreas', filterAllMonths:'Todos los meses',
+    catSafety:'Seguridad', catQuality:'Calidad', catEnvironmental:'Ambiental',
+    openLabel:'abiertos', closedLabel:'cerrados',
+    kpiDetected:'Hallazgos Detectados', kpiDetectedSub:'Acumulado del periodo (todas las áreas)',
+    kpiOptimal:'Procesos en Óptimas Condiciones',
+    kpiOptimalSub:(a,b)=>`${a} de ${b} áreas sin hallazgo abierto`,
+    kpiOpen:'Hallazgos Abiertos',
+    kpiOpenSub:(c,n,z)=>`${c} críticos · ${n} no críticos · ${z} cerrados`,
+    chartAreaTitle:'Hallazgos por Área / Proceso', chartAreaSub:'Detectados vs. Abiertos actuales, por área de la planta',
+    chartStatusTitle:'Estatus General de Hallazgos', chartStatusSub:'Distribución Abiertos / Cerrados',
+    chartTrendTitle:'Tendencia Mensual de Hallazgos', chartTrendSub:'Detectados vs. cerrados por mes',
+    chartSeverityTitle:'Hallazgos Abiertos por Severidad', chartSeveritySub:'Crítico / No Crítico',
+    legendDetected:'Detectados', legendOpen:'Abiertos', legendClosed:'Cerrados',
+    btnDeleteExpired:'Borrar evidencias vencidas (+7 días)',
+    tableTitle:'Detalle de Hallazgos',
+    thFolio:'Folio', thType:'Tipo', thArea:'Área / Proceso', thFinding:'Hallazgo', thSeverity:'Severidad',
+    thDate:'Fecha Detección', thResponsible:'Responsable', thStatus:'Estatus', thQR:'Código QR', thActions:'Acciones',
+    statusOpen:'Abierto', statusClosed:'Cerrado',
+    btnView:'Ver', btnDelete:'Borrar', qrOpenLink:'Abrir', qrLoading:'Cargando…',
+    footerText:'Los datos mostrados provienen en tiempo real del Formato de Auditoría Integral (Firebase). La evidencia fotográfica se conserva 7 días o hasta su borrado manual con usuario y contraseña. &nbsp;·&nbsp; Documento para uso interno de Hyundai Polytech Mexico.',
+    evidenceModalTitle:(folio)=>`Evidencia · Folio ${folio}`,
+    metaType:'Tipo', metaArea:'Área', metaResponsible:'Responsable', metaStatus:'Estatus',
+    beforeLabel:'Antes', afterLabel:'Después',
+    noPhotoBefore:'Sin fotografía', noPhotoAfter:'Pendiente de seguimiento',
+    notesLabel:'Notas / Comentarios', noNotes:'Sin comentarios registrados.',
+    loginTitle:'Acceso Requerido', loginUserPh:'Usuario', loginPassPh:'Contraseña',
+    loginErrorMsg:'Usuario o contraseña incorrectos.', loginSubmitBtn:'Ingresar',
+    locale:'es-MX'
+  },
+  en:{
+    title:'HPM Findings Integral Dashboard',
+    subtitle:'Hyundai Polytech Mexico Integral Audit &nbsp;|&nbsp; Safety · Quality · Environmental',
+    filterAllAreas:'All areas', filterAllMonths:'All months',
+    catSafety:'Safety', catQuality:'Quality', catEnvironmental:'Environmental',
+    openLabel:'open', closedLabel:'closed',
+    kpiDetected:'Findings Detected', kpiDetectedSub:'Accumulated for the period (all areas)',
+    kpiOptimal:'Areas in Optimal Condition',
+    kpiOptimalSub:(a,b)=>`${a} of ${b} areas without open findings`,
+    kpiOpen:'Open Findings',
+    kpiOpenSub:(c,n,z)=>`${c} critical · ${n} non-critical · ${z} closed`,
+    chartAreaTitle:'Findings by Area / Process', chartAreaSub:'Detected vs. currently open, by plant area',
+    chartStatusTitle:'Overall Findings Status', chartStatusSub:'Open / Closed distribution',
+    chartTrendTitle:'Monthly Findings Trend', chartTrendSub:'Detected vs. closed by month',
+    chartSeverityTitle:'Open Findings by Severity', chartSeveritySub:'Critical / Non-Critical',
+    legendDetected:'Detected', legendOpen:'Open', legendClosed:'Closed',
+    btnDeleteExpired:'Delete expired evidence (+7 days)',
+    tableTitle:'Findings Detail',
+    thFolio:'Folio', thType:'Type', thArea:'Area / Process', thFinding:'Finding', thSeverity:'Severity',
+    thDate:'Detection Date', thResponsible:'Responsible', thStatus:'Status', thQR:'QR Code', thActions:'Actions',
+    statusOpen:'Open', statusClosed:'Closed',
+    btnView:'View', btnDelete:'Delete', qrOpenLink:'Open', qrLoading:'Loading…',
+    footerText:'The data shown comes in real time from the Integral Audit Format (Firebase). Photographic evidence is kept for 7 days or until manually deleted with username and password. &nbsp;·&nbsp; Internal use document for Hyundai Polytech Mexico.',
+    evidenceModalTitle:(folio)=>`Evidence · Folio ${folio}`,
+    metaType:'Type', metaArea:'Area', metaResponsible:'Responsible', metaStatus:'Status',
+    beforeLabel:'Before', afterLabel:'After',
+    noPhotoBefore:'No photograph', noPhotoAfter:'Pending follow-up',
+    notesLabel:'Notes / Comments', noNotes:'No comments recorded.',
+    loginTitle:'Access Required', loginUserPh:'Username', loginPassPh:'Password',
+    loginErrorMsg:'Incorrect username or password.', loginSubmitBtn:'Sign In',
+    locale:'en-US'
+  },
+  ko:{
+    title:'HPM 발견사항 통합 대시보드',
+    subtitle:'현대폴리텍 멕시코 통합 감사 &nbsp;|&nbsp; 안전 · 품질 · 환경',
+    filterAllAreas:'모든 구역', filterAllMonths:'모든 월',
+    catSafety:'안전', catQuality:'품질', catEnvironmental:'환경',
+    openLabel:'진행중', closedLabel:'완료',
+    kpiDetected:'발견된 사항', kpiDetectedSub:'기간 누계 (전체 구역)',
+    kpiOptimal:'최적 상태 구역',
+    kpiOptimalSub:(a,b)=>`${b}개 구역 중 ${a}개 구역에 미결 사항 없음`,
+    kpiOpen:'미결 발견사항',
+    kpiOpenSub:(c,n,z)=>`중대 ${c} · 비중대 ${n} · 완료 ${z}`,
+    chartAreaTitle:'구역별 발견사항', chartAreaSub:'구역별 발견 대비 현재 미결 건수',
+    chartStatusTitle:'전체 발견사항 상태', chartStatusSub:'진행중 / 완료 분포',
+    chartTrendTitle:'월별 발견사항 추이', chartTrendSub:'월별 발견 대비 완료 건수',
+    chartSeverityTitle:'미결 발견사항 심각도', chartSeveritySub:'중대 / 비중대',
+    legendDetected:'발견됨', legendOpen:'진행중', legendClosed:'완료',
+    btnDeleteExpired:'만료된 증거 삭제 (7일 이상)',
+    tableTitle:'발견사항 상세',
+    thFolio:'사안번호', thType:'유형', thArea:'구역/공정', thFinding:'발견사항', thSeverity:'심각도',
+    thDate:'발견일', thResponsible:'책임자', thStatus:'상태', thQR:'QR 코드', thActions:'작업',
+    statusOpen:'진행중', statusClosed:'완료',
+    btnView:'보기', btnDelete:'삭제', qrOpenLink:'열기', qrLoading:'로딩중…',
+    footerText:'표시된 데이터는 통합 감사 양식(Firebase)에서 실시간으로 제공됩니다. 사진 증거는 7일간 보관되며 사용자/비밀번호로 수동 삭제할 수 있습니다. &nbsp;·&nbsp; 현대폴리텍 멕시코 내부용 문서.',
+    evidenceModalTitle:(folio)=>`증거 · 사안번호 ${folio}`,
+    metaType:'유형', metaArea:'구역', metaResponsible:'책임자', metaStatus:'상태',
+    beforeLabel:'전', afterLabel:'후',
+    noPhotoBefore:'사진 없음', noPhotoAfter:'조치 대기중',
+    notesLabel:'비고 / 코멘트', noNotes:'등록된 코멘트가 없습니다.',
+    loginTitle:'접근 권한 필요', loginUserPh:'사용자', loginPassPh:'비밀번호',
+    loginErrorMsg:'사용자 또는 비밀번호가 올바르지 않습니다.', loginSubmitBtn:'로그인',
+    locale:'ko-KR'
+  }
+};
+let currentLang = 'es';
+
+function escapeHTML(v){return String(v || '').replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+
+function applyLang(lang){
+  currentLang = lang;
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if(typeof T[lang][key] === 'string') el.innerHTML = T[lang][key];
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-ph');
+    if(typeof T[lang][key] === 'string') el.setAttribute('placeholder', T[lang][key]);
+  });
+  document.querySelectorAll('.langsw button').forEach(b=>b.classList.toggle('active', b.dataset.lang===lang));
+  if(typeof dashboard !== 'undefined' && dashboard){ dashboard.renderAll(); }
+}
+
+/* ---- Utilidades de código QR (para la columna "Código QR" de la tabla) ---- */
+const qrCache = {};
+function getQRDataURL(folio){
+  return new Promise((resolve)=>{
+    if(qrCache[folio]){ resolve(qrCache[folio]); return; }
+    const container = document.getElementById('qrHiddenContainer');
+    const holder = document.createElement('div');
+    container.appendChild(holder);
+    const url = `${SEGUIMIENTO_BASE_URL}?id=${encodeURIComponent(folio)}`;
+    new QRCode(holder, { text:url, width:120, height:120, correctLevel: QRCode.CorrectLevel.M });
+    setTimeout(()=>{
+      const canvas = holder.querySelector('canvas');
+      const img = holder.querySelector('img');
+      let dataURL = '';
+      if(canvas){ dataURL = canvas.toDataURL('image/png'); }
+      else if(img && img.src){ dataURL = img.src; }
+      qrCache[folio] = dataURL;
+      holder.remove();
+      resolve(dataURL);
+    }, 180);
+  });
+}
+
+/* ---- Mapear un documento de Firestore al formato usado por la tabla/gráficas ---- */
+function mapDoc(docSnap){
+  const d = docSnap.data();
+  const createdMillis = d.createdAtMillis || Date.now();
+  const fecha = new Date(createdMillis);
+  const fechaStr = `${fecha.getFullYear()}-${String(fecha.getMonth()+1).padStart(2,'0')}-${String(fecha.getDate()).padStart(2,'0')}`;
+  return {
+    docId: docSnap.id,
+    folio: d.folio || docSnap.id,
+    category: d.category || '-',        // clave cruda: safety/quality/environmental
+    areaKey: d.area || '-',              // clave cruda del área
+    areaFallback: d.areaLabel || d.area || '-',
+    classification: d.classification || 'noncritical',
+    hallazgo: d.description || '-',
+    fecha: fechaStr,
+    createdAtMillis: createdMillis,
+    responsable: d.responsible || '-',
+    isClosed: d.status === 'cerrado',
+    photosBefore: d.photosBefore || [],
+    photoAfter: d.photoAfter || null,
+    notes: d.notes || '',
+    correctiveAction: d.correctiveAction || ''
+  };
+}
+function categoryLabelFor(raw){ return CATEGORY_LABELS[currentLang][raw] || raw; }
+function areaLabelFor(d){ return AREA_LABELS[currentLang][d.areaKey] || d.areaFallback; }
+function severidadLabelFor(d){ return CLASS_LABELS[currentLang][d.classification] || d.classification; }
+function estatusLabelFor(d){ return d.isClosed ? T[currentLang].statusClosed : T[currentLang].statusOpen; }
+
+class Dashboard {
+  constructor(){
+    this.rawData = [];
+    this.filteredData = [];
+    this.charts = {};
+    this.sortState = {key:null, asc:true};
+    this.init();
+  }
+
+  init(){
+    this.updateDataDate();
+    this.setupTableSort();
+    this.bindToolbar();
+    this.listenToFirestore();
+  }
+
+  updateDataDate(){
+    document.getElementById('data-date').textContent =
+      new Date().toLocaleDateString(T[currentLang].locale, {year:'numeric', month:'long', day:'numeric'});
+  }
+
+  listenToFirestore(){
+    db.collection(HALLAZGOS_COLLECTION).onSnapshot((snapshot)=>{
+      this.rawData = snapshot.docs.map(mapDoc);
+      this.setupFilters();
+      this.applyFilters();
+      this.cleanupExpired();
+    }, (err)=>{
+      console.error('Error escuchando Firestore:', err);
+    });
+  }
+
+  async cleanupExpired(){
+    const now = Date.now();
+    const limitMs = EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+    const expired = this.rawData.filter(d => (now - d.createdAtMillis) > limitMs);
+    for(const d of expired){
+      try{ await db.collection(HALLAZGOS_COLLECTION).doc(d.docId).delete(); }
+      catch(err){ console.error('No se pudo borrar evidencia vencida', d.folio, err); }
+    }
+  }
+
+  setupFilters(){
+    const areaSel = document.getElementById('filterArea');
+    const mesSel = document.getElementById('filterMes');
+    const prevArea = areaSel.value || 'Todas';
+    const prevMes = mesSel.value || 'Todos';
+
+    const areaKeys = [...new Set(this.rawData.map(d=>d.areaKey))].sort();
+    areaSel.innerHTML = `<option value="Todas">${escapeHTML(T[currentLang].filterAllAreas)}</option>` +
+      areaKeys.map(a=>`<option value="${escapeHTML(a)}">${escapeHTML(AREA_LABELS[currentLang][a] || a)}</option>`).join('');
+    areaSel.value = areaKeys.includes(prevArea) ? prevArea : 'Todas';
+
+    const meses = [...new Set(this.rawData.map(d=>d.fecha.slice(0,7)))].sort();
+    mesSel.innerHTML = `<option value="Todos">${escapeHTML(T[currentLang].filterAllMonths)}</option>` +
+      meses.map(m=>{ const [y,mo]=m.split('-'); return `<option value="${m}">${MESES_LABEL[currentLang][mo]||mo} ${y}</option>`; }).join('');
+    mesSel.value = meses.includes(prevMes) ? prevMes : 'Todos';
+
+    areaSel.onchange = ()=>this.applyFilters();
+    mesSel.onchange = ()=>this.applyFilters();
+  }
+
+  applyFilters(){
+    const area = document.getElementById('filterArea').value || 'Todas';
+    const mes = document.getElementById('filterMes').value || 'Todos';
+    this.filteredData = this.rawData.filter(d=>{
+      const okArea = area==='Todas' || d.areaKey===area;
+      const okMes = mes==='Todos' || d.fecha.slice(0,7)===mes;
+      return okArea && okMes;
+    });
+    this.renderAll();
+  }
+
+  renderAll(){
+    this.updateDataDate();
+    this.renderCategoryCards();
+    this.renderKPIs();
+    this.renderCharts();
+    this.renderTable();
+  }
+
+  renderCategoryCards(){
+    ['safety','quality','environmental'].forEach(cat=>{
+      const items = this.filteredData.filter(d=>d.category===cat);
+      const open = items.filter(d=>!d.isClosed).length;
+      const closed = items.filter(d=>d.isClosed).length;
+      document.getElementById(`cat-${cat}-total`).textContent = items.length;
+      document.getElementById(`cat-${cat}-open`).textContent = open;
+      document.getElementById(`cat-${cat}-closed`).textContent = closed;
+    });
+  }
+
+  renderKPIs(){
+    const data = this.filteredData;
+    const total = data.length;
+    const abiertos = data.filter(d=>!d.isClosed).length;
+    const cerrados = data.filter(d=>d.isClosed).length;
+
+    const criticos = data.filter(d=>!d.isClosed && d.classification==='critical').length;
+    const noCriticos = data.filter(d=>!d.isClosed && d.classification!=='critical').length;
+
+    const areasConAbiertos = new Set(data.filter(d=>!d.isClosed).map(d=>d.areaKey)).size;
+    const totalAreas = new Set(this.rawData.map(d=>d.areaKey)).size || 1;
+    const procesosOptimos = Math.max(totalAreas - areasConAbiertos, 0);
+    const pctOptimo = totalAreas > 0 ? Math.round((procesosOptimos/totalAreas)*100) : 0;
+
+    document.getElementById('kpi-total').textContent = total;
+    document.getElementById('bar-total').style.width = '100%';
+
+    document.getElementById('kpi-optimal').textContent = pctOptimo + '%';
+    document.getElementById('kpi-optimal-sub').textContent = T[currentLang].kpiOptimalSub(procesosOptimos, totalAreas);
+    document.getElementById('bar-optimal').style.width = pctOptimo + '%';
+
+    document.getElementById('kpi-open').textContent = abiertos;
+    document.getElementById('kpi-open-sub').textContent = T[currentLang].kpiOpenSub(criticos, noCriticos, cerrados);
+    const pctOpenOfTotal = total>0 ? Math.round((abiertos/total)*100) : 0;
+    document.getElementById('bar-open').style.width = pctOpenOfTotal + '%';
+  }
+
+  renderCharts(){
+    this.renderAreaChart();
+    this.renderStatusChart();
+    this.renderTrendChart();
+    this.renderSeverityChart();
+  }
+
+  destroyIfExists(key){
+    if(this.charts[key]){ this.charts[key].destroy(); }
+  }
+
+  renderAreaChart(){
+    const data = this.filteredData;
+    const areaKeys = [...new Set(this.rawData.map(d=>d.areaKey))].sort();
+    const labels = areaKeys.map(a=>AREA_LABELS[currentLang][a] || a);
+    const detectados = areaKeys.map(a=>data.filter(d=>d.areaKey===a).length);
+    const abiertos = areaKeys.map(a=>data.filter(d=>d.areaKey===a && !d.isClosed).length);
+
+    this.destroyIfExists('area');
+    const ctx = document.getElementById('chartArea').getContext('2d');
+    this.charts.area = new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels:labels,
+        datasets:[
+          {label:T[currentLang].legendDetected, data:detectados, backgroundColor:COLORS.blue, borderRadius:6},
+          {label:T[currentLang].legendOpen, data:abiertos, backgroundColor:COLORS.red, borderRadius:6}
+        ]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:true,
+        plugins:{ legend:{position:'bottom', labels:{boxWidth:8, padding:6, font:{size:9}}} },
+        scales:{ y:{ beginAtZero:true, ticks:{precision:0, font:{size:9}} }, x:{ ticks:{font:{size:9}} } }
+      }
+    });
+  }
+
+  renderStatusChart(){
+    const data = this.filteredData;
+    const abiertos = data.filter(d=>!d.isClosed).length;
+    const cerrados = data.filter(d=>d.isClosed).length;
+
+    this.destroyIfExists('status');
+    const ctx = document.getElementById('chartStatus').getContext('2d');
+    this.charts.status = new Chart(ctx, {
+      type:'doughnut',
+      data:{
+        labels:[T[currentLang].legendOpen, T[currentLang].legendClosed],
+        datasets:[{
+          data:[abiertos, cerrados],
+          backgroundColor:[COLORS.red, COLORS.green],
+          borderWidth:2,
+          borderColor:'#fff'
+        }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:true,
+        cutout:'62%',
+        plugins:{ legend:{position:'bottom', labels:{boxWidth:8, padding:6, font:{size:9}}} }
+      }
+    });
+  }
+
+  renderTrendChart(){
+    const data = this.filteredData;
+    const meses = [...new Set(this.rawData.map(d=>d.fecha.slice(0,7)))].sort();
+    const detectadosPorMes = meses.map(m=>data.filter(d=>d.fecha.slice(0,7)===m).length);
+    const cerradosPorMes = meses.map(m=>data.filter(d=>d.fecha.slice(0,7)===m && d.isClosed).length);
+    const labels = meses.map(m=>{ const [y,mo]=m.split('-'); return `${MESES_LABEL[currentLang][mo]||mo} ${y.slice(2)}`; });
+
+    this.destroyIfExists('trend');
+    const ctx = document.getElementById('chartTrend').getContext('2d');
+    this.charts.trend = new Chart(ctx, {
+      type:'line',
+      data:{
+        labels:labels,
+        datasets:[
+          {label:T[currentLang].legendDetected, data:detectadosPorMes, borderColor:COLORS.blueDark, backgroundColor:COLORS.blueDark+'20', borderWidth:2, tension:0.35, fill:true, pointRadius:4},
+          {label:T[currentLang].legendClosed, data:cerradosPorMes, borderColor:COLORS.green, backgroundColor:COLORS.green+'20', borderWidth:2, tension:0.35, fill:true, pointRadius:4}
+        ]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:true,
+        plugins:{ legend:{position:'bottom', labels:{boxWidth:8, padding:6, font:{size:9}}} },
+        scales:{ y:{ beginAtZero:true, ticks:{precision:0} } }
+      }
+    });
+  }
+
+  renderSeverityChart(){
+    const data = this.filteredData.filter(d=>!d.isClosed);
+    const criticos = data.filter(d=>d.classification==='critical').length;
+    const noCriticos = data.filter(d=>d.classification!=='critical').length;
+
+    this.destroyIfExists('severity');
+    const ctx = document.getElementById('chartSeverity').getContext('2d');
+    this.charts.severity = new Chart(ctx, {
+      type:'doughnut',
+      data:{
+        labels:[CLASS_LABELS[currentLang].critical, CLASS_LABELS[currentLang].noncritical],
+        datasets:[{
+          data:[criticos, noCriticos],
+          backgroundColor:[COLORS.red, COLORS.blue],
+          borderWidth:2,
+          borderColor:'#fff'
+        }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:true,
+        cutout:'62%',
+        plugins:{ legend:{position:'bottom', labels:{boxWidth:8, padding:6, font:{size:9}}} }
+      }
+    });
+  }
+
+  renderTable(){
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    let rows = [...this.filteredData];
+
+    if(this.sortState.key){
+      const {key, asc} = this.sortState;
+      rows.sort((a,b)=>{
+        let va = key==='area' ? areaLabelFor(a) : key==='categoryLabel' ? categoryLabelFor(a.category) : key==='severidad' ? severidadLabelFor(a) : key==='estatus' ? estatusLabelFor(a) : (key==='hallazgo' ? a.hallazgo : a[key]);
+        let vb = key==='area' ? areaLabelFor(b) : key==='categoryLabel' ? categoryLabelFor(b.category) : key==='severidad' ? severidadLabelFor(b) : key==='estatus' ? estatusLabelFor(b) : (key==='hallazgo' ? b.hallazgo : b[key]);
+        if(va < vb) return asc ? -1 : 1;
+        if(va > vb) return asc ? 1 : -1;
+        return 0;
+      });
+    }
+
+    rows.forEach(d=>{
+      const tr = document.createElement('tr');
+      const sevClass = d.classification==='critical' ? 'critico' : 'menor';
+      const statClass = d.isClosed ? 'cerrado' : 'abierto';
+      tr.innerHTML = `
+        <td class="folio-cell">${escapeHTML(d.folio)}</td>
+        <td>${escapeHTML(categoryLabelFor(d.category))}</td>
+        <td>${escapeHTML(areaLabelFor(d))}</td>
+        <td>${escapeHTML(d.hallazgo)}</td>
+        <td><span class="sev-chip ${sevClass}">${escapeHTML(severidadLabelFor(d))}</span></td>
+        <td>${escapeHTML(d.fecha)}</td>
+        <td>${escapeHTML(d.responsable)}</td>
+        <td><span class="status-chip ${statClass}">${escapeHTML(estatusLabelFor(d))}</span></td>
+        <td class="qr-cell" data-qr-folio="${escapeHTML(d.folio)}"><span style="font-size:.65rem;color:var(--muted);">${escapeHTML(T[currentLang].qrLoading)}</span></td>
+        <td>
+          <div class="row-actions">
+            <button type="button" class="btn-view" data-view-folio="${escapeHTML(d.docId)}">${escapeHTML(T[currentLang].btnView)}</button>
+            <button type="button" class="btn-delete" data-delete-folio="${escapeHTML(d.docId)}">${escapeHTML(T[currentLang].btnDelete)}</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+      this.renderQRCell(tr.querySelector('.qr-cell'), d.folio);
+    });
+
+    tbody.querySelectorAll('[data-view-folio]').forEach(btn=>{
+      btn.addEventListener('click', ()=>openEvidenceModal(btn.dataset.viewFolio));
+    });
+    tbody.querySelectorAll('[data-delete-folio]').forEach(btn=>{
+      btn.addEventListener('click', ()=>requestDelete(btn.dataset.deleteFolio));
+    });
+  }
+
+  async renderQRCell(cell, folio){
+    const dataURL = await getQRDataURL(folio);
+    if(!dataURL) return;
+    const url = `${SEGUIMIENTO_BASE_URL}?id=${encodeURIComponent(folio)}`;
+    cell.innerHTML = `<img src="${dataURL}" alt="QR ${escapeHTML(folio)}" data-qr-img="${escapeHTML(folio)}"><a href="${url}" target="_blank" rel="noopener">${escapeHTML(T[currentLang].qrOpenLink)}</a>`;
+  }
+
+  setupTableSort(){
+    document.querySelectorAll('#detailTable thead th').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const key = th.dataset.key;
+        if(!key) return;
+        if(this.sortState.key === key){ this.sortState.asc = !this.sortState.asc; }
+        else { this.sortState.key = key; this.sortState.asc = true; }
+        this.renderTable();
+      });
+    });
+  }
+
+  bindToolbar(){
+    document.getElementById('btnDeleteExpired').addEventListener('click', ()=>{
+      requestDeleteExpired();
+    });
+  }
+}
+
+/* ---- Modal: Ver Evidencia ---- */
+function openEvidenceModal(docId){
+  const d = dashboard.rawData.find(x=>x.docId===docId) || dashboard.filteredData.find(x=>x.docId===docId);
+  if(!d) return;
+  document.getElementById('evidenceModalTitle').textContent = T[currentLang].evidenceModalTitle(d.folio);
+  document.getElementById('evidenceModalMeta').innerHTML = `
+    <div><b>${escapeHTML(T[currentLang].metaType)}</b>${escapeHTML(categoryLabelFor(d.category))}</div>
+    <div><b>${escapeHTML(T[currentLang].metaArea)}</b>${escapeHTML(areaLabelFor(d))}</div>
+    <div><b>${escapeHTML(T[currentLang].metaResponsible)}</b>${escapeHTML(d.responsable)}</div>
+    <div><b>${escapeHTML(T[currentLang].metaStatus)}</b>${escapeHTML(estatusLabelFor(d))}</div>
+  `;
+  const beforeSrc = (d.photosBefore && d.photosBefore[0]) || null;
+  const afterSrc = d.photoAfter || null;
+  document.getElementById('evidenceBeforeBox').innerHTML = beforeSrc
+    ? `<img src="${beforeSrc}" alt="Antes">`
+    : `<div class="no-img">${escapeHTML(T[currentLang].noPhotoBefore)}</div>`;
+  document.getElementById('evidenceAfterBox').innerHTML = afterSrc
+    ? `<img src="${afterSrc}" alt="Después">`
+    : `<div class="no-img">${escapeHTML(T[currentLang].noPhotoAfter)}</div>`;
+  document.getElementById('evidenceNotes').textContent = d.notes || T[currentLang].noNotes;
+  document.getElementById('evidenceModal').classList.add('show');
+}
+
+/* ---- Modal: Login para borrado ---- */
+let pendingDeleteAction = null;
+function openLoginModal(action){
+  pendingDeleteAction = action;
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').classList.remove('show');
+  document.getElementById('loginModal').classList.add('show');
+}
+function requestDelete(docId){
+  openLoginModal(async ()=>{
+    await db.collection(HALLAZGOS_COLLECTION).doc(docId).delete();
+  });
+}
+function requestDeleteExpired(){
+  openLoginModal(async ()=>{
+    await dashboard.cleanupExpired();
+  });
+}
+
+document.querySelectorAll('[data-close-modal]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.getElementById(btn.dataset.closeModal).classList.remove('show');
+  });
+});
+document.querySelectorAll('.modal-overlay').forEach(overlay=>{
+  overlay.addEventListener('click', (e)=>{ if(e.target === overlay) overlay.classList.remove('show'); });
+});
+document.getElementById('loginSubmit').addEventListener('click', async ()=>{
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  if(user === DELETE_USER && pass === DELETE_PASS){
+    document.getElementById('loginModal').classList.remove('show');
+    if(pendingDeleteAction){ await pendingDeleteAction(); }
+    pendingDeleteAction = null;
+  } else {
+    document.getElementById('loginError').classList.add('show');
+  }
+});
+document.querySelectorAll('.langsw button').forEach(btn=>btn.addEventListener('click', ()=>applyLang(btn.dataset.lang)));
+
+const dashboard = new Dashboard();
+applyLang('es');
+</script>
+</body>
+</html>
